@@ -1,36 +1,73 @@
 # Dependency Brain
 
-`dep-brain` is an npm package that combines dependency analysis signals into one CLI and library.
+`dep-brain` is a CLI and library for analyzing dependency health in JavaScript and TypeScript projects.
 
 ## Vision
 
 `npm audit + depcheck + dedupe + intelligence = one tool`
 
-## MVP Goals
+## What It Does
 
-- Detect duplicate dependencies from lockfiles
-- Detect likely unused dependencies from source imports
+- Detect duplicate dependencies from `package-lock.json`
+- Detect likely unused dependencies from source imports and scripts
 - Detect outdated packages
-- Produce a project health score
+- Highlight dependency risk signals
+- Generate a simple project health score
+- Output reports in human-readable or JSON format
 
-## CLI
+## Current MVP Features
+
+- Duplicate dependency detection with lockfile instance tracking
+- Unused dependency detection with runtime vs dev-tool heuristics
+- Outdated dependency reporting with `major`, `minor`, and `patch` classification
+- Risk analysis based on npm package metadata
+- Console reporting
+- JSON output via `--json`
+- Library entrypoint for programmatic use
+
+## CLI Usage
 
 ```bash
 npx dep-brain analyze
+npx dep-brain analyze --json
+npx dep-brain analyze ./path-to-project
 ```
 
-Example output:
+## Example Output
 
 ```text
-Project Health: 61/100
+Project Health: 78/100
+Path: /your/project
 
-3 duplicate dependencies
-2 unused packages
-4 outdated libraries
+WARN Duplicates: 2
+OK Unused: 0
+WARN Outdated: 3
+OK Risks: 0
+
+Duplicate dependencies:
+- ansi-regex: 5.0.1, 6.0.1
+
+Outdated dependencies:
+- chalk: ^4.1.2 -> 5.4.1 [major]
 
 Suggestions:
-- Replace moment -> dayjs
-- Remove lodash (unused)
+- Consider consolidating ansi-regex to one version
+- Review chalk: ^4.1.2 -> 5.4.1 (major)
+```
+
+## JSON Output
+
+```bash
+dep-brain analyze --json
+```
+
+## Development
+
+```bash
+npm install
+npm run typecheck
+npm run test
+npm run build
 ```
 
 ## Project Structure
@@ -52,15 +89,19 @@ src/
 |   |-- console.ts
 |   `-- json.ts
 `-- utils/
-    |-- npm-api.ts
-    `-- file-parser.ts
+    |-- file-parser.ts
+    `-- npm-api.ts
 ```
 
-## Development
+## Roadmap Direction
 
-```bash
-npm install
-npm run build
-```
+- Improve false-positive reduction for unused dependency detection
+- Add config support
+- Improve monorepo and workspace support
+- Strengthen risk scoring and suggestions
+- Add CI and GitHub Action support in later releases
 
-The current scaffold is intentionally lean and ready for MVP iteration.
+## Repository Notes
+
+- Project brief: [docs/project-brief.md](./docs/project-brief.md)
+- Implementation history: [docs/implementation-log.md](./docs/implementation-log.md)
