@@ -18,10 +18,7 @@ export async function findRiskDependencies(
       const reasons: string[] = [];
 
       if (!metadata) {
-        return {
-          name,
-          reasons: ["Package metadata unavailable"]
-        };
+        return null;
       }
 
       if (metadata.daysSincePublish !== null && metadata.daysSincePublish > TWO_YEARS_IN_DAYS) {

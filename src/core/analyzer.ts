@@ -10,19 +10,27 @@ export interface AnalysisOptions {
   rootDir?: string;
 }
 
+export interface DuplicateInstance {
+  path: string;
+  version: string;
+}
+
 export interface DuplicateDependency {
   name: string;
   versions: string[];
+  instances: DuplicateInstance[];
 }
 
 export interface UnusedDependency {
   name: string;
+  section: "dependencies" | "devDependencies";
 }
 
 export interface OutdatedDependency {
   name: string;
   current: string;
   latest: string;
+  updateType: "major" | "minor" | "patch" | "unknown";
 }
 
 export interface RiskDependency {
@@ -61,12 +69,13 @@ export async function analyzeProject(
   });
 
   const suggestions = [
-    ...unused.map((item) => `Remove ${item.name} (unused)`),
+    ...unused.map((item) => `Remove ${item.name} from ${item.section}`),
     ...duplicates.map(
       (item) => `Consider consolidating ${item.name} to one version`
     ),
     ...outdated.map(
-      (item) => `Review ${item.name}: ${item.current} -> ${item.latest}`
+      (item) =>
+        `Review ${item.name}: ${item.current} -> ${item.latest} (${item.updateType})`
     )
   ].slice(0, 5);
 

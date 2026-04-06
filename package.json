@@ -16,6 +16,7 @@
     "clean": "if exist dist rmdir /s /q dist",
     "dev": "tsx src/cli.ts analyze",
     "start": "node dist/cli.js analyze",
+    "test": "npm run build && node tests/run.js",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "keywords": [

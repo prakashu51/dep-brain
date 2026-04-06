@@ -5,6 +5,8 @@ export interface PackageMetadata {
   daysSincePublish: number | null;
 }
 
+const metadataCache = new Map<string, Promise<PackageMetadata | null>>();
+
 export async function getLatestVersion(name: string): Promise<string | null> {
   const metadata = await getPackageMetadata(name);
   return metadata?.latestVersion ?? null;
@@ -13,10 +15,25 @@ export async function getLatestVersion(name: string): Promise<string | null> {
 export async function getPackageMetadata(
   name: string
 ): Promise<PackageMetadata | null> {
+  const existing = metadataCache.get(name);
+  if (existing) {
+    return existing;
+  }
+
+  const request = fetchPackageMetadata(name);
+  metadataCache.set(name, request);
+  return request;
+}
+
+async function fetchPackageMetadata(name: string): Promise<PackageMetadata | null> {
   try {
     const [packageResponse, downloadsResponse] = await Promise.all([
-      fetch(`https://registry.npmjs.org/${encodeURIComponent(name)}`),
-      fetch(`https://api.npmjs.org/downloads/point/last-week/${encodeURIComponent(name)}`)
+      fetch(`https://registry.npmjs.org/${encodeURIComponent(name)}`, {
+        signal: AbortSignal.timeout(5000)
+      }),
+      fetch(`https://api.npmjs.org/downloads/point/last-week/${encodeURIComponent(name)}`, {
+        signal: AbortSignal.timeout(5000)
+      })
     ]);
 
     if (!packageResponse.ok) {
