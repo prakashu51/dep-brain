@@ -4,8 +4,10 @@ import { fileURLToPath } from "node:url";
 import { findDuplicateDependencies } from "../dist/checks/duplicate.js";
 import { findOutdatedDependencies } from "../dist/checks/outdated.js";
 import { findUnusedDependencies } from "../dist/checks/unused.js";
+import { analyzeProject } from "../dist/core/analyzer.js";
 import { buildDependencyGraph } from "../dist/core/graph-builder.js";
 import { calculateHealthScore } from "../dist/core/scorer.js";
+import { loadDepBrainConfig } from "../dist/utils/config.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -92,6 +94,32 @@ const tests = [
         }),
         67
       );
+    }
+  },
+  {
+    name: "config loader applies defaults and fixture overrides",
+    run: async () => {
+      const fixtureRoot = path.join(__dirname, "fixtures", "config-project");
+      const config = await loadDepBrainConfig(fixtureRoot);
+
+      assert.deepEqual(config.ignore.unused, ["unused-lib", "unused-dev-tool"]);
+      assert.equal(config.policy.minScore, 100);
+      assert.equal(config.policy.failOnUnused, true);
+      assert.equal(config.report.maxSuggestions, 1);
+      assert.deepEqual(config.ignore.outdated, []);
+    }
+  },
+  {
+    name: "analysis respects config ignore rules and policy thresholds",
+    run: async () => {
+      const fixtureRoot = path.join(__dirname, "fixtures", "config-project");
+      const result = await analyzeProject({ rootDir: fixtureRoot });
+
+      assert.equal(result.unused.length, 0);
+      assert.equal(result.score, 100);
+      assert.equal(result.policy.passed, true);
+      assert.deepEqual(result.policy.reasons, []);
+      assert.equal(result.suggestions.length, 0);
     }
   }
 ];

@@ -5,6 +5,7 @@ export function renderConsoleReport(result: AnalysisResult): string {
 
   lines.push(`Project Health: ${result.score}/100`);
   lines.push(`Path: ${result.rootDir}`);
+  lines.push(`Policy: ${result.policy.passed ? "PASS" : "FAIL"}`);
   lines.push("");
   lines.push(summaryLine("Duplicates", result.duplicates.length));
   lines.push(summaryLine("Unused", result.unused.length));
@@ -38,6 +39,8 @@ export function renderConsoleReport(result: AnalysisResult): string {
     "Risky dependencies",
     result.risks.map((item) => `${item.name}: ${item.reasons.join("; ")}`)
   );
+
+  appendSection(lines, "Policy reasons", result.policy.reasons);
 
   if (result.suggestions.length > 0) {
     lines.push("");

@@ -72,3 +72,44 @@ Use this format for future entries:
 
 - Before npm publish, the next likely priorities are README polish, release notes, and possibly config support.
 - Future iterations should keep this file updated alongside code changes.
+
+## 2026-04-06 - Config and CI policy iteration
+
+### What changed
+
+- Added `depbrain.config.json` support with default config loading.
+- Added ignore lists for `dependencies`, `devDependencies`, `unused`, `duplicates`, `outdated`, and `risks`.
+- Added policy controls for minimum score and failing on duplicates, unused dependencies, outdated dependencies, or risks.
+- Added configurable suggestion limits for reports.
+- Added CLI support for `--config`, `--min-score`, `--fail-on-duplicates`, `--fail-on-unused`, `--fail-on-outdated`, and `--fail-on-risks`.
+- Added policy evaluation into analysis results and console output.
+- Added config fixtures and tests for config loading and policy-aware analysis behavior.
+- Fixed CLI positional argument parsing so target paths work reliably alongside flags.
+
+### Why it changed
+
+- The next step after MVP hardening was making the tool usable in repeatable team workflows.
+- Config and policy controls are the foundation for CI integration and future GitHub Action support.
+
+### Files touched
+
+- `src/core/analyzer.ts`
+- `src/cli.ts`
+- `src/reporters/console.ts`
+- `src/index.ts`
+- `src/utils/config.ts`
+- `tests/run.js`
+- `tests/fixtures/config-project/depbrain.config.json`
+- `tests/fixtures/config-project/package.json`
+- `tests/fixtures/config-project/tsconfig.json`
+- `tests/fixtures/config-project/src/index.ts`
+- `docs/implementation-log.md`
+
+### Verification completed
+
+- Pending local verification after implementation
+
+### Follow-up notes
+
+- The next likely release-focused step is README and sample config documentation for end users.
+- CI policy behavior can later be extended with per-check severity thresholds and markdown output.

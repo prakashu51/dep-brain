@@ -1,0 +1,12 @@
+{
+  "ignore": {
+    "unused": ["unused-lib", "unused-dev-tool"]
+  },
+  "policy": {
+    "minScore": 100,
+    "failOnUnused": true
+  },
+  "report": {
+    "maxSuggestions": 1
+  }
+}
