@@ -21,6 +21,9 @@
 - Unused dependency detection with runtime vs dev-tool heuristics
 - Outdated dependency reporting with `major`, `minor`, and `patch` classification
 - Risk analysis based on npm package metadata
+- Config loading from `depbrain.config.json`
+- Ignore rules for noisy dependencies and checks
+- CI-friendly policy evaluation with non-zero exit codes
 - Console reporting
 - JSON output via `--json`
 - Library entrypoint for programmatic use
@@ -31,6 +34,9 @@
 npx dep-brain analyze
 npx dep-brain analyze --json
 npx dep-brain analyze ./path-to-project
+npx dep-brain analyze --config depbrain.config.json
+npx dep-brain analyze --min-score 90 --fail-on-risks
+npx dep-brain analyze ./path-to-project --fail-on-unused --json
 ```
 
 ## Example Output
@@ -38,6 +44,7 @@ npx dep-brain analyze ./path-to-project
 ```text
 Project Health: 78/100
 Path: /your/project
+Policy: FAIL
 
 WARN Duplicates: 2
 OK Unused: 0
@@ -50,6 +57,9 @@ Duplicate dependencies:
 Outdated dependencies:
 - chalk: ^4.1.2 -> 5.4.1 [major]
 
+Policy reasons:
+- Score 78 is below minimum 90
+
 Suggestions:
 - Consider consolidating ansi-regex to one version
 - Review chalk: ^4.1.2 -> 5.4.1 (major)
@@ -59,6 +69,54 @@ Suggestions:
 
 ```bash
 dep-brain analyze --json
+```
+
+## Config File
+
+Create a `depbrain.config.json` file in the project root:
+
+```json
+{
+  "ignore": {
+    "unused": ["eslint"],
+    "outdated": ["typescript"]
+  },
+  "policy": {
+    "minScore": 90,
+    "failOnUnused": true,
+    "failOnRisks": true
+  },
+  "report": {
+    "maxSuggestions": 3
+  }
+}
+```
+
+Supported sections:
+
+- `ignore.dependencies`
+- `ignore.devDependencies`
+- `ignore.unused`
+- `ignore.duplicates`
+- `ignore.outdated`
+- `ignore.risks`
+- `policy.minScore`
+- `policy.failOnDuplicates`
+- `policy.failOnUnused`
+- `policy.failOnOutdated`
+- `policy.failOnRisks`
+- `report.maxSuggestions`
+
+## CI Behavior
+
+`dep-brain` now returns a non-zero exit code when configured policy checks fail.
+
+Examples:
+
+```bash
+dep-brain analyze --fail-on-unused
+dep-brain analyze --min-score 85 --fail-on-risks
+dep-brain analyze --config depbrain.config.json
 ```
 
 ## Development
@@ -90,13 +148,13 @@ src/
 |   `-- json.ts
 `-- utils/
     |-- file-parser.ts
-    `-- npm-api.ts
+    |-- npm-api.ts
+    `-- config.ts
 ```
 
 ## Roadmap Direction
 
 - Improve false-positive reduction for unused dependency detection
-- Add config support
 - Improve monorepo and workspace support
 - Strengthen risk scoring and suggestions
 - Add CI and GitHub Action support in later releases

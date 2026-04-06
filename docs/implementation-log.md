@@ -107,9 +107,13 @@ Use this format for future entries:
 
 ### Verification completed
 
-- Pending local verification after implementation
+- `npm run typecheck`
+- `npm run test`
+- `npm run build`
+- `node dist/cli.js analyze tests/fixtures/config-project`
+- `node dist/cli.js analyze tests/fixtures/unused-project --fail-on-unused`
 
 ### Follow-up notes
 
-- The next likely release-focused step is README and sample config documentation for end users.
+- README and sample config documentation were added after this iteration.
 - CI policy behavior can later be extended with per-check severity thresholds and markdown output.
