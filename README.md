@@ -24,6 +24,7 @@
 - Config loading from `depbrain.config.json`
 - Ignore rules for noisy dependencies and checks
 - CI-friendly policy evaluation with non-zero exit codes
+- Workspace-aware analysis for npm workspaces
 - Console reporting
 - JSON output via `--json`
 - Library entrypoint for programmatic use
@@ -31,13 +32,23 @@
 ## CLI Usage
 
 ```bash
+npm install -g dep-brain
+dep-brain analyze
+
 npx dep-brain analyze
 npx dep-brain analyze --json
 npx dep-brain analyze ./path-to-project
 npx dep-brain analyze --config depbrain.config.json
 npx dep-brain analyze --min-score 90 --fail-on-risks
 npx dep-brain analyze ./path-to-project --fail-on-unused --json
+
+dep-brain config
+dep-brain config --config depbrain.config.json
 ```
+
+## Workspaces
+
+If the root `package.json` defines `workspaces`, `dep-brain` analyzes each workspace package and reports per-package results. Aggregated counts are still shown at the top-level summary.
 
 ## Example Output
 
@@ -107,6 +118,11 @@ Supported sections:
 - `policy.failOnRisks`
 - `report.maxSuggestions`
 
+Sample config file:
+
+- `depbrain.config.json`
+- `depbrain.config.schema.json`
+
 ## CI Behavior
 
 `dep-brain` now returns a non-zero exit code when configured policy checks fail.
@@ -117,6 +133,15 @@ Examples:
 dep-brain analyze --fail-on-unused
 dep-brain analyze --min-score 85 --fail-on-risks
 dep-brain analyze --config depbrain.config.json
+```
+
+## Config Debugging
+
+Print the resolved config (after defaults and CLI overrides):
+
+```bash
+dep-brain config
+dep-brain config --config depbrain.config.json
 ```
 
 ## Development

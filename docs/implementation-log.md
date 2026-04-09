@@ -117,3 +117,124 @@ Use this format for future entries:
 
 - README and sample config documentation were added after this iteration.
 - CI policy behavior can later be extended with per-check severity thresholds and markdown output.
+
+## 2026-04-09 - Workspace-aware analysis iteration
+
+### What changed
+
+- Added workspace detection via root `package.json` workspaces.
+- Added per-package analysis with aggregated reporting at the workspace root.
+- Added package context to unused, outdated, and risk entries.
+- Added workspace fixtures and test coverage.
+- Updated console output and README to include workspace results.
+
+### Why it changed
+
+- Workspaces are common in modern npm projects and are a critical next step for real-world adoption.
+
+### Files touched
+
+- `src/core/analyzer.ts`
+- `src/utils/workspaces.ts`
+- `src/reporters/console.ts`
+- `src/index.ts`
+- `tests/run.js`
+- `tests/fixtures/workspace-root/package.json`
+- `tests/fixtures/workspace-root/packages/a/package.json`
+- `tests/fixtures/workspace-root/packages/a/src/index.ts`
+- `tests/fixtures/workspace-root/packages/b/package.json`
+- `tests/fixtures/workspace-root/packages/b/src/index.ts`
+- `README.md`
+- `docs/implementation-log.md`
+
+### Verification completed
+
+- `npm run typecheck`
+- `npm run test`
+
+### Follow-up notes
+
+- The next likely step is to add workspace-aware config overrides and improved JSON/markdown reporting.
+
+## 2026-04-09 - Release prep docs iteration
+
+### What changed
+
+- Added a sample `depbrain.config.json` file at the repo root.
+- Updated README with install usage and a reference to the sample config.
+- Added a starter `CHANGELOG.md`.
+
+### Why it changed
+
+- To prepare for a public npm release with clear docs and a usable default config.
+
+### Files touched
+
+- `depbrain.config.json`
+- `README.md`
+- `CHANGELOG.md`
+- `docs/implementation-log.md`
+
+### Verification completed
+
+- Not applicable (documentation-only change)
+
+### Follow-up notes
+
+- Add badges and a release checklist before the first stable npm publish.
+
+## 2026-04-09 - Config schema and validation iteration
+
+### What changed
+
+- Added `depbrain.config.schema.json` for config validation and editor tooling.
+- Hardened config loading with type normalization for arrays, booleans, and numbers.
+- Updated README to reference the schema file.
+
+### Why it changed
+
+- To make configuration safer and easier to author with editor validation.
+
+### Files touched
+
+- `depbrain.config.schema.json`
+- `src/utils/config.ts`
+- `README.md`
+- `docs/implementation-log.md`
+
+### Verification completed
+
+- `npm run typecheck`
+- `npm run test`
+
+### Follow-up notes
+
+- Consider adding a CLI flag to print the resolved config for debugging.
+
+## 2026-04-09 - Config print command iteration
+
+### What changed
+
+- Added `dep-brain config` to print the resolved configuration.
+- Updated README with config debug usage.
+- Added a test to verify CLI overrides apply to resolved config.
+
+### Why it changed
+
+- It makes CI troubleshooting easier and gives users confidence about which config is active.
+
+### Files touched
+
+- `src/cli.ts`
+- `README.md`
+- `tests/run.js`
+- `docs/implementation-log.md`
+
+### Verification completed
+
+- `npm run typecheck`
+- `npm run test`
+
+### Follow-up notes
+
+- Consider adding a `--json` flag for config output consistency with analyze.

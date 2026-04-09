@@ -1,0 +1,20 @@
+{
+  "ignore": {
+    "unused": [],
+    "outdated": [],
+    "duplicates": [],
+    "risks": [],
+    "dependencies": [],
+    "devDependencies": []
+  },
+  "policy": {
+    "minScore": 85,
+    "failOnUnused": false,
+    "failOnOutdated": false,
+    "failOnDuplicates": false,
+    "failOnRisks": false
+  },
+  "report": {
+    "maxSuggestions": 5
+  }
+}

@@ -121,6 +121,37 @@ const tests = [
       assert.deepEqual(result.policy.reasons, []);
       assert.equal(result.suggestions.length, 0);
     }
+  },
+  {
+    name: "workspace analysis returns per-package results",
+    run: async () => {
+      const fixtureRoot = path.join(__dirname, "fixtures", "workspace-root");
+      const result = await analyzeProject({ rootDir: fixtureRoot });
+
+      assert.ok(result.packages);
+      assert.equal(result.packages?.length, 2);
+      const names = result.packages?.map((pkg) => pkg.name).sort();
+      assert.deepEqual(names, ["@workspace/a", "@workspace/b"]);
+
+      const unused = result.unused.map((item) => item.package);
+      assert.ok(unused.includes("@workspace/b"));
+    }
+  },
+  {
+    name: "config resolution honors defaults and CLI overrides",
+    run: async () => {
+      const fixtureRoot = path.join(__dirname, "fixtures", "config-project");
+      const result = await analyzeProject({
+        rootDir: fixtureRoot,
+        config: {
+          policy: {
+            minScore: 75
+          }
+        }
+      });
+
+      assert.equal(result.config.policy.minScore, 75);
+    }
   }
 ];
 

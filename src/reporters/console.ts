@@ -12,6 +12,16 @@ export function renderConsoleReport(result: AnalysisResult): string {
   lines.push(summaryLine("Outdated", result.outdated.length));
   lines.push(summaryLine("Risks", result.risks.length));
 
+  if (result.packages && result.packages.length > 0) {
+    lines.push("");
+    lines.push("Packages:");
+    for (const pkg of result.packages) {
+      lines.push(
+        `- ${pkg.name}: ${pkg.score}/100, D:${pkg.duplicates.length} U:${pkg.unused.length} O:${pkg.outdated.length} R:${pkg.risks.length}`
+      );
+    }
+  }
+
   appendSection(
     lines,
     "Duplicate dependencies",
@@ -23,21 +33,32 @@ export function renderConsoleReport(result: AnalysisResult): string {
   appendSection(
     lines,
     "Unused dependencies",
-    result.unused.map((item) => `${item.name} (${item.section})`)
+    result.unused.map((item) =>
+      item.package
+        ? `${item.name} (${item.section}) [${item.package}]`
+        : `${item.name} (${item.section})`
+    )
   );
 
   appendSection(
     lines,
     "Outdated dependencies",
     result.outdated.map(
-      (item) => `${item.name}: ${item.current} -> ${item.latest} [${item.updateType}]`
+      (item) =>
+        item.package
+          ? `${item.name}: ${item.current} -> ${item.latest} [${item.updateType}] [${item.package}]`
+          : `${item.name}: ${item.current} -> ${item.latest} [${item.updateType}]`
     )
   );
 
   appendSection(
     lines,
     "Risky dependencies",
-    result.risks.map((item) => `${item.name}: ${item.reasons.join("; ")}`)
+    result.risks.map((item) =>
+      item.package
+        ? `${item.name}: ${item.reasons.join("; ")} [${item.package}]`
+        : `${item.name}: ${item.reasons.join("; ")}`
+    )
   );
 
   appendSection(lines, "Policy reasons", result.policy.reasons);

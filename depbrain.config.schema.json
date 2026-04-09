@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Dependency Brain Config",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "ignore": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "dependencies": { "type": "array", "items": { "type": "string" } },
+        "devDependencies": { "type": "array", "items": { "type": "string" } },
+        "unused": { "type": "array", "items": { "type": "string" } },
+        "duplicates": { "type": "array", "items": { "type": "string" } },
+        "outdated": { "type": "array", "items": { "type": "string" } },
+        "risks": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "minScore": { "type": "number" },
+        "failOnUnused": { "type": "boolean" },
+        "failOnOutdated": { "type": "boolean" },
+        "failOnDuplicates": { "type": "boolean" },
+        "failOnRisks": { "type": "boolean" }
+      }
+    },
+    "report": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "maxSuggestions": { "type": "number" }
+      }
+    }
+  }
+}

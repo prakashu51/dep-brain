@@ -66,27 +66,81 @@ export async function loadDepBrainConfig(
 function normalizeConfig(loaded: Partial<DepBrainConfig>): DepBrainConfig {
   return {
     ignore: {
-      dependencies: loaded.ignore?.dependencies ?? defaultConfig.ignore.dependencies,
+      dependencies: normalizeStringArray(
+        loaded.ignore?.dependencies,
+        defaultConfig.ignore.dependencies
+      ),
       devDependencies:
-        loaded.ignore?.devDependencies ?? defaultConfig.ignore.devDependencies,
-      duplicates: loaded.ignore?.duplicates ?? defaultConfig.ignore.duplicates,
-      outdated: loaded.ignore?.outdated ?? defaultConfig.ignore.outdated,
-      risks: loaded.ignore?.risks ?? defaultConfig.ignore.risks,
-      unused: loaded.ignore?.unused ?? defaultConfig.ignore.unused
+        normalizeStringArray(
+          loaded.ignore?.devDependencies,
+          defaultConfig.ignore.devDependencies
+        ),
+      duplicates: normalizeStringArray(
+        loaded.ignore?.duplicates,
+        defaultConfig.ignore.duplicates
+      ),
+      outdated: normalizeStringArray(
+        loaded.ignore?.outdated,
+        defaultConfig.ignore.outdated
+      ),
+      risks: normalizeStringArray(
+        loaded.ignore?.risks,
+        defaultConfig.ignore.risks
+      ),
+      unused: normalizeStringArray(
+        loaded.ignore?.unused,
+        defaultConfig.ignore.unused
+      )
     },
     policy: {
-      minScore: loaded.policy?.minScore ?? defaultConfig.policy.minScore,
+      minScore: normalizeNumber(
+        loaded.policy?.minScore,
+        defaultConfig.policy.minScore
+      ),
       failOnDuplicates:
-        loaded.policy?.failOnDuplicates ?? defaultConfig.policy.failOnDuplicates,
+        normalizeBoolean(
+          loaded.policy?.failOnDuplicates,
+          defaultConfig.policy.failOnDuplicates
+        ),
       failOnOutdated:
-        loaded.policy?.failOnOutdated ?? defaultConfig.policy.failOnOutdated,
-      failOnRisks: loaded.policy?.failOnRisks ?? defaultConfig.policy.failOnRisks,
+        normalizeBoolean(
+          loaded.policy?.failOnOutdated,
+          defaultConfig.policy.failOnOutdated
+        ),
+      failOnRisks: normalizeBoolean(
+        loaded.policy?.failOnRisks,
+        defaultConfig.policy.failOnRisks
+      ),
       failOnUnused:
-        loaded.policy?.failOnUnused ?? defaultConfig.policy.failOnUnused
+        normalizeBoolean(
+          loaded.policy?.failOnUnused,
+          defaultConfig.policy.failOnUnused
+        )
     },
     report: {
-      maxSuggestions:
-        loaded.report?.maxSuggestions ?? defaultConfig.report.maxSuggestions
+      maxSuggestions: normalizeNumber(
+        loaded.report?.maxSuggestions,
+        defaultConfig.report.maxSuggestions
+      )
     }
   };
+}
+
+function normalizeStringArray(
+  value: unknown,
+  fallback: string[]
+): string[] {
+  if (!Array.isArray(value)) {
+    return fallback;
+  }
+
+  return value.filter((item): item is string => typeof item === "string");
+}
+
+function normalizeBoolean(value: unknown, fallback: boolean): boolean {
+  return typeof value === "boolean" ? value : fallback;
+}
+
+function normalizeNumber(value: unknown, fallback: number): number {
+  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
 }
