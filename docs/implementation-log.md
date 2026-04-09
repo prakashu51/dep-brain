@@ -288,3 +288,45 @@ Use this format for future entries:
 ### Follow-up notes
 
 - Consider adding a `--json` flag to `dep-brain config` for consistency.
+
+## 2026-04-09 - GitHub Actions setup iteration
+
+### What changed
+
+- Added CI workflow for typecheck, build, and test on Node 18/20/22.
+- Added publish workflow for tag-based npm releases.
+
+### Why it changed
+
+- To standardize checks on PRs and automate tagged releases.
+
+### Files touched
+
+- `.github/workflows/ci.yml`
+- `.github/workflows/publish.yml`
+- `docs/implementation-log.md`
+
+### Verification completed
+
+- Not run locally (GitHub Actions only)
+
+## 2026-04-09 - GitHub Actions refinement iteration
+
+### What changed
+
+- Added manual `workflow_dispatch` trigger for CI.
+- Added `typecheck` step before publish validation.
+
+### Why it changed
+
+- CI can be run manually when needed, and publish gets a stricter pre-check.
+
+### Files touched
+
+- `.github/workflows/ci.yml`
+- `.github/workflows/publish.yml`
+- `docs/implementation-log.md`
+
+### Verification completed
+
+- Not run locally (GitHub Actions only)
