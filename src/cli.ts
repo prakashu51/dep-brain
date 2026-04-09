@@ -32,10 +32,22 @@ async function main(): Promise<void> {
   const targetPath = positionals[0] ?? process.cwd();
 
   if (command !== "analyze") {
+    if (command === "config") {
+      const config = await analyzeProject({
+        rootDir: targetPath,
+        configPath: optionValues.get("--config"),
+        config: buildCliConfig(flags, optionValues)
+      });
+
+      console.log(JSON.stringify(config.config, null, 2));
+      return;
+    }
+
     console.error(`Unknown command: ${command}`);
     console.error(
       "Usage: dep-brain analyze [path] [--json] [--config path] [--min-score n] [--fail-on-risks] [--fail-on-outdated] [--fail-on-unused] [--fail-on-duplicates]"
     );
+    console.error("       dep-brain config [path] [--config path]");
     process.exitCode = 1;
     return;
   }

@@ -41,6 +41,9 @@ npx dep-brain analyze ./path-to-project
 npx dep-brain analyze --config depbrain.config.json
 npx dep-brain analyze --min-score 90 --fail-on-risks
 npx dep-brain analyze ./path-to-project --fail-on-unused --json
+
+dep-brain config
+dep-brain config --config depbrain.config.json
 ```
 
 ## Workspaces
@@ -118,6 +121,7 @@ Supported sections:
 Sample config file:
 
 - `depbrain.config.json`
+- `depbrain.config.schema.json`
 
 ## CI Behavior
 
@@ -129,6 +133,15 @@ Examples:
 dep-brain analyze --fail-on-unused
 dep-brain analyze --min-score 85 --fail-on-risks
 dep-brain analyze --config depbrain.config.json
+```
+
+## Config Debugging
+
+Print the resolved config (after defaults and CLI overrides):
+
+```bash
+dep-brain config
+dep-brain config --config depbrain.config.json
 ```
 
 ## Development

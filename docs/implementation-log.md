@@ -182,3 +182,59 @@ Use this format for future entries:
 ### Follow-up notes
 
 - Add badges and a release checklist before the first stable npm publish.
+
+## 2026-04-09 - Config schema and validation iteration
+
+### What changed
+
+- Added `depbrain.config.schema.json` for config validation and editor tooling.
+- Hardened config loading with type normalization for arrays, booleans, and numbers.
+- Updated README to reference the schema file.
+
+### Why it changed
+
+- To make configuration safer and easier to author with editor validation.
+
+### Files touched
+
+- `depbrain.config.schema.json`
+- `src/utils/config.ts`
+- `README.md`
+- `docs/implementation-log.md`
+
+### Verification completed
+
+- `npm run typecheck`
+- `npm run test`
+
+### Follow-up notes
+
+- Consider adding a CLI flag to print the resolved config for debugging.
+
+## 2026-04-09 - Config print command iteration
+
+### What changed
+
+- Added `dep-brain config` to print the resolved configuration.
+- Updated README with config debug usage.
+- Added a test to verify CLI overrides apply to resolved config.
+
+### Why it changed
+
+- It makes CI troubleshooting easier and gives users confidence about which config is active.
+
+### Files touched
+
+- `src/cli.ts`
+- `README.md`
+- `tests/run.js`
+- `docs/implementation-log.md`
+
+### Verification completed
+
+- `npm run typecheck`
+- `npm run test`
+
+### Follow-up notes
+
+- Consider adding a `--json` flag for config output consistency with analyze.

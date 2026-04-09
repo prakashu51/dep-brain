@@ -136,6 +136,22 @@ const tests = [
       const unused = result.unused.map((item) => item.package);
       assert.ok(unused.includes("@workspace/b"));
     }
+  },
+  {
+    name: "config resolution honors defaults and CLI overrides",
+    run: async () => {
+      const fixtureRoot = path.join(__dirname, "fixtures", "config-project");
+      const result = await analyzeProject({
+        rootDir: fixtureRoot,
+        config: {
+          policy: {
+            minScore: 75
+          }
+        }
+      });
+
+      assert.equal(result.config.policy.minScore, 75);
+    }
   }
 ];
 
