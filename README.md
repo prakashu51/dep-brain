@@ -24,6 +24,7 @@
 - Config loading from `depbrain.config.json`
 - Ignore rules for noisy dependencies and checks
 - CI-friendly policy evaluation with non-zero exit codes
+- Workspace-aware analysis for npm workspaces
 - Console reporting
 - JSON output via `--json`
 - Library entrypoint for programmatic use
@@ -38,6 +39,10 @@ npx dep-brain analyze --config depbrain.config.json
 npx dep-brain analyze --min-score 90 --fail-on-risks
 npx dep-brain analyze ./path-to-project --fail-on-unused --json
 ```
+
+## Workspaces
+
+If the root `package.json` defines `workspaces`, `dep-brain` analyzes each workspace package and reports per-package results. Aggregated counts are still shown at the top-level summary.
 
 ## Example Output
 

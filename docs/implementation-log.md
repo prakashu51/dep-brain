@@ -117,3 +117,41 @@ Use this format for future entries:
 
 - README and sample config documentation were added after this iteration.
 - CI policy behavior can later be extended with per-check severity thresholds and markdown output.
+
+## 2026-04-09 - Workspace-aware analysis iteration
+
+### What changed
+
+- Added workspace detection via root `package.json` workspaces.
+- Added per-package analysis with aggregated reporting at the workspace root.
+- Added package context to unused, outdated, and risk entries.
+- Added workspace fixtures and test coverage.
+- Updated console output and README to include workspace results.
+
+### Why it changed
+
+- Workspaces are common in modern npm projects and are a critical next step for real-world adoption.
+
+### Files touched
+
+- `src/core/analyzer.ts`
+- `src/utils/workspaces.ts`
+- `src/reporters/console.ts`
+- `src/index.ts`
+- `tests/run.js`
+- `tests/fixtures/workspace-root/package.json`
+- `tests/fixtures/workspace-root/packages/a/package.json`
+- `tests/fixtures/workspace-root/packages/a/src/index.ts`
+- `tests/fixtures/workspace-root/packages/b/package.json`
+- `tests/fixtures/workspace-root/packages/b/src/index.ts`
+- `README.md`
+- `docs/implementation-log.md`
+
+### Verification completed
+
+- `npm run typecheck`
+- `npm run test`
+
+### Follow-up notes
+
+- The next likely step is to add workspace-aware config overrides and improved JSON/markdown reporting.

@@ -8,6 +8,7 @@ import {
   type DepBrainConfig,
   type DepBrainConfigOverrides
 } from "../utils/config.js";
+import { findWorkspacePackages } from "../utils/workspaces.js";
 import { buildDependencyGraph } from "./graph-builder.js";
 import { calculateHealthScore } from "./scorer.js";
 
@@ -31,6 +32,7 @@ export interface DuplicateDependency {
 export interface UnusedDependency {
   name: string;
   section: "dependencies" | "devDependencies";
+  package?: string;
 }
 
 export interface OutdatedDependency {
@@ -38,11 +40,13 @@ export interface OutdatedDependency {
   current: string;
   latest: string;
   updateType: "major" | "minor" | "patch" | "unknown";
+  package?: string;
 }
 
 export interface RiskDependency {
   name: string;
   reasons: string[];
+  package?: string;
 }
 
 export interface AnalysisResult {
@@ -55,11 +59,24 @@ export interface AnalysisResult {
   risks: RiskDependency[];
   suggestions: string[];
   config: DepBrainConfig;
+  packages?: PackageAnalysisResult[];
 }
 
 export interface PolicyResult {
   passed: boolean;
   reasons: string[];
+}
+
+export interface PackageAnalysisResult {
+  name: string;
+  rootDir: string;
+  score: number;
+  policy: PolicyResult;
+  duplicates: DuplicateDependency[];
+  unused: UnusedDependency[];
+  outdated: OutdatedDependency[];
+  risks: RiskDependency[];
+  suggestions: string[];
 }
 
 export async function analyzeProject(
@@ -68,27 +85,35 @@ export async function analyzeProject(
   const rootDir = path.resolve(options.rootDir ?? process.cwd());
   const loadedConfig = await loadDepBrainConfig(rootDir, options.configPath);
   const config = mergeConfig(loadedConfig, options.config);
-  const graph = await buildDependencyGraph(rootDir);
+  const workspaces = await findWorkspacePackages(rootDir);
 
-  const [rawDuplicates, rawUnused, rawOutdated, rawRisks] = await Promise.all([
-    findDuplicateDependencies(graph),
-    findUnusedDependencies(rootDir, graph),
-    findOutdatedDependencies(graph),
-    findRiskDependencies(graph)
-  ]);
+  if (workspaces.length === 0) {
+    return analyzeSingleProject(rootDir, config);
+  }
 
+  const rootGraph = await buildDependencyGraph(rootDir);
+  const rawDuplicates = await findDuplicateDependencies(rootGraph);
   const duplicates = rawDuplicates.filter(
     (item) => !config.ignore.duplicates.includes(item.name)
   );
-  const unused = rawUnused.filter(
-    (item) =>
-      !config.ignore.unused.includes(item.name) &&
-      !config.ignore[item.section].includes(item.name)
+
+  const packages: PackageAnalysisResult[] = [];
+  for (const workspace of workspaces) {
+    const result = await analyzeSingleProject(workspace.rootDir, config, {
+      packageName: workspace.name
+    });
+    packages.push({ ...result, name: workspace.name });
+  }
+
+  const unused = packages.flatMap((pkg) =>
+    pkg.unused.map((item) => ({ ...item, package: pkg.name }))
   );
-  const outdated = rawOutdated.filter(
-    (item) => !config.ignore.outdated.includes(item.name)
+  const outdated = packages.flatMap((pkg) =>
+    pkg.outdated.map((item) => ({ ...item, package: pkg.name }))
   );
-  const risks = rawRisks.filter((item) => !config.ignore.risks.includes(item.name));
+  const risks = packages.flatMap((pkg) =>
+    pkg.risks.map((item) => ({ ...item, package: pkg.name }))
+  );
 
   const score = calculateHealthScore({
     duplicates: duplicates.length,
@@ -98,13 +123,8 @@ export async function analyzeProject(
   });
 
   const suggestions = [
-    ...unused.map((item) => `Remove ${item.name} from ${item.section}`),
-    ...duplicates.map(
-      (item) => `Consider consolidating ${item.name} to one version`
-    ),
-    ...outdated.map(
-      (item) =>
-        `Review ${item.name}: ${item.current} -> ${item.latest} (${item.updateType})`
+    ...packages.flatMap((pkg) =>
+      pkg.suggestions.map((suggestion) => `[${pkg.name}] ${suggestion}`)
     )
   ].slice(0, config.report.maxSuggestions);
 
@@ -128,7 +148,8 @@ export async function analyzeProject(
     outdated,
     risks,
     suggestions,
-    config
+    config,
+    packages
   };
 }
 
@@ -203,5 +224,87 @@ function evaluatePolicy(
   return {
     passed: reasons.length === 0,
     reasons
+  };
+}
+
+async function analyzeSingleProject(
+  rootDir: string,
+  config: DepBrainConfig,
+  options: { packageName?: string } = {}
+): Promise<AnalysisResult> {
+  const graph = await buildDependencyGraph(rootDir);
+
+  const [rawDuplicates, rawUnused, rawOutdated, rawRisks] = await Promise.all([
+    findDuplicateDependencies(graph),
+    findUnusedDependencies(rootDir, graph),
+    findOutdatedDependencies(graph),
+    findRiskDependencies(graph)
+  ]);
+
+  const duplicates = rawDuplicates.filter(
+    (item) => !config.ignore.duplicates.includes(item.name)
+  );
+  const unused = rawUnused.filter(
+    (item) =>
+      !config.ignore.unused.includes(item.name) &&
+      !config.ignore[item.section].includes(item.name)
+  );
+  const outdated = rawOutdated.filter(
+    (item) => !config.ignore.outdated.includes(item.name)
+  );
+  const risks = rawRisks.filter((item) => !config.ignore.risks.includes(item.name));
+
+  const score = calculateHealthScore({
+    duplicates: duplicates.length,
+    unused: unused.length,
+    outdated: outdated.length,
+    risks: risks.length
+  });
+
+  const suggestions = [
+    ...unused.map((item) => `Remove ${item.name} from ${item.section}`),
+    ...duplicates.map(
+      (item) => `Consider consolidating ${item.name} to one version`
+    ),
+    ...outdated.map(
+      (item) =>
+        `Review ${item.name}: ${item.current} -> ${item.latest} (${item.updateType})`
+    )
+  ].slice(0, config.report.maxSuggestions);
+
+  const policy = evaluatePolicy(
+    {
+      score,
+      duplicates: duplicates.length,
+      unused: unused.length,
+      outdated: outdated.length,
+      risks: risks.length
+    },
+    config
+  );
+
+  const scopedUnused =
+    options.packageName && options.packageName.trim().length > 0
+      ? unused.map((item) => ({ ...item, package: options.packageName }))
+      : unused;
+  const scopedOutdated =
+    options.packageName && options.packageName.trim().length > 0
+      ? outdated.map((item) => ({ ...item, package: options.packageName }))
+      : outdated;
+  const scopedRisks =
+    options.packageName && options.packageName.trim().length > 0
+      ? risks.map((item) => ({ ...item, package: options.packageName }))
+      : risks;
+
+  return {
+    rootDir,
+    score,
+    policy,
+    duplicates,
+    unused: scopedUnused,
+    outdated: scopedOutdated,
+    risks: scopedRisks,
+    suggestions,
+    config
   };
 }
