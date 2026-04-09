@@ -4,6 +4,8 @@ import { analyzeProject } from "./core/analyzer.js";
 import { renderConsoleReport } from "./reporters/console.js";
 import { renderJsonReport } from "./reporters/json.js";
 import type { DepBrainConfig, DepBrainConfigOverrides } from "./utils/config.js";
+import { promises as fs } from "node:fs";
+import path from "node:path";
 
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
@@ -30,9 +32,21 @@ async function main(): Promise<void> {
   }
 
   const targetPath = positionals[0] ?? process.cwd();
+  const showHelp = flags.has("--help") || command === "help";
+
+  if (showHelp) {
+    printHelp();
+    return;
+  }
 
   if (command !== "analyze") {
     if (command === "config") {
+      if (!(await hasPackageJson(targetPath))) {
+        console.error(`No package.json found at ${targetPath}`);
+        process.exitCode = 1;
+        return;
+      }
+
       const config = await analyzeProject({
         rootDir: targetPath,
         configPath: optionValues.get("--config"),
@@ -44,10 +58,13 @@ async function main(): Promise<void> {
     }
 
     console.error(`Unknown command: ${command}`);
-    console.error(
-      "Usage: dep-brain analyze [path] [--json] [--config path] [--min-score n] [--fail-on-risks] [--fail-on-outdated] [--fail-on-unused] [--fail-on-duplicates]"
-    );
-    console.error("       dep-brain config [path] [--config path]");
+    printHelp();
+    process.exitCode = 1;
+    return;
+  }
+
+  if (!(await hasPackageJson(targetPath))) {
+    console.error(`No package.json found at ${targetPath}`);
     process.exitCode = 1;
     return;
   }
@@ -99,4 +116,34 @@ function buildCliConfig(
   return {
     policy
   };
+}
+
+async function hasPackageJson(targetPath: string): Promise<boolean> {
+  try {
+    await fs.access(path.join(targetPath, "package.json"));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function printHelp(): void {
+  console.log("Dependency Brain");
+  console.log("");
+  console.log("Usage:");
+  console.log(
+    "  dep-brain analyze [path] [--json] [--config path] [--min-score n] [--fail-on-risks] [--fail-on-outdated] [--fail-on-unused] [--fail-on-duplicates]"
+  );
+  console.log("  dep-brain config [path] [--config path]");
+  console.log("  dep-brain help");
+  console.log("");
+  console.log("Options:");
+  console.log("  --json              Output JSON for analysis");
+  console.log("  --config <path>     Path to depbrain.config.json");
+  console.log("  --min-score <n>     Minimum score required to pass");
+  console.log("  --fail-on-risks     Fail when risky dependencies exist");
+  console.log("  --fail-on-outdated  Fail when outdated dependencies exist");
+  console.log("  --fail-on-unused    Fail when unused dependencies exist");
+  console.log("  --fail-on-duplicates Fail when duplicates exist");
+  console.log("  --help              Show this help output");
 }

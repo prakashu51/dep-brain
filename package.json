@@ -9,7 +9,12 @@
     "dep-brain": "dist/cli.js"
   },
   "files": [
-    "dist"
+    "dist",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md",
+    "depbrain.config.json",
+    "depbrain.config.schema.json"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",

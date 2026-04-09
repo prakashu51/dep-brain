@@ -1,5 +1,9 @@
 # Dependency Brain
 
+[![npm version](https://img.shields.io/npm/v/dep-brain)](https://www.npmjs.com/package/dep-brain)
+[![npm downloads](https://img.shields.io/npm/dm/dep-brain)](https://www.npmjs.com/package/dep-brain)
+[![license](https://img.shields.io/npm/l/dep-brain)](LICENSE)
+
 `dep-brain` is a CLI and library for analyzing dependency health in JavaScript and TypeScript projects.
 
 ## Vision
@@ -44,6 +48,9 @@ npx dep-brain analyze ./path-to-project --fail-on-unused --json
 
 dep-brain config
 dep-brain config --config depbrain.config.json
+
+dep-brain help
+dep-brain analyze --help
 ```
 
 ## Workspaces

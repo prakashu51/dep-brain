@@ -238,3 +238,53 @@ Use this format for future entries:
 ### Follow-up notes
 
 - Consider adding a `--json` flag for config output consistency with analyze.
+
+## 2026-04-09 - Test stability iteration
+
+### What changed
+
+- Relaxed the config-policy test to avoid network-dependent score assertions.
+- Relaxed suggestion-count assertions to avoid network-dependent outdated results.
+
+### Why it changed
+
+- Outdated checks depend on live npm data, so the score can vary across runs.
+
+### Files touched
+
+- `tests/run.js`
+- `docs/implementation-log.md`
+
+### Verification completed
+
+- `npm run test`
+
+## 2026-04-09 - Release hardening iteration
+
+### What changed
+
+- Added a CLI help output and explicit package.json presence checks.
+- Added badges and help examples to the README.
+- Added `RELEASE.md` and expanded npm package files list.
+
+### Why it changed
+
+- These are the final release blockers for a clean `v0.1.0` publish.
+
+### Files touched
+
+- `src/cli.ts`
+- `package.json`
+- `README.md`
+- `RELEASE.md`
+- `docs/implementation-log.md`
+
+### Verification completed
+
+- `npm run typecheck`
+- `npm run test`
+- `npm pack`
+
+### Follow-up notes
+
+- Consider adding a `--json` flag to `dep-brain config` for consistency.
