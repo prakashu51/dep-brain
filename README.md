@@ -32,6 +32,9 @@
 ## CLI Usage
 
 ```bash
+npm install -g dep-brain
+dep-brain analyze
+
 npx dep-brain analyze
 npx dep-brain analyze --json
 npx dep-brain analyze ./path-to-project
@@ -111,6 +114,10 @@ Supported sections:
 - `policy.failOnOutdated`
 - `policy.failOnRisks`
 - `report.maxSuggestions`
+
+Sample config file:
+
+- `depbrain.config.json`
 
 ## CI Behavior
 

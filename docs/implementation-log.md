@@ -155,3 +155,30 @@ Use this format for future entries:
 ### Follow-up notes
 
 - The next likely step is to add workspace-aware config overrides and improved JSON/markdown reporting.
+
+## 2026-04-09 - Release prep docs iteration
+
+### What changed
+
+- Added a sample `depbrain.config.json` file at the repo root.
+- Updated README with install usage and a reference to the sample config.
+- Added a starter `CHANGELOG.md`.
+
+### Why it changed
+
+- To prepare for a public npm release with clear docs and a usable default config.
+
+### Files touched
+
+- `depbrain.config.json`
+- `README.md`
+- `CHANGELOG.md`
+- `docs/implementation-log.md`
+
+### Verification completed
+
+- Not applicable (documentation-only change)
+
+### Follow-up notes
+
+- Add badges and a release checklist before the first stable npm publish.
