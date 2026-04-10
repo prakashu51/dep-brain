@@ -33,6 +33,16 @@
       "properties": {
         "maxSuggestions": { "type": "number" }
       }
+    },
+    "scoring": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "duplicateWeight": { "type": "number" },
+        "outdatedWeight": { "type": "number" },
+        "unusedWeight": { "type": "number" },
+        "riskWeight": { "type": "number" }
+      }
     }
   }
 }

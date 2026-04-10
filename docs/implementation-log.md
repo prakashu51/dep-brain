@@ -398,3 +398,34 @@ Use this format for future entries:
 
 - `npm run typecheck`
 - `npm run test`
+
+## 2026-04-10 - v0.2.0 scoring iteration
+
+### What changed
+
+- Added configurable scoring weights in config (`scoring.*`).
+- Added score breakdown output to console and JSON.
+- Updated config schema and sample config with scoring section.
+- Extended tests for weighted scoring and report payloads.
+
+### Why it changed
+
+- It makes the health score more meaningful for large repos with many outdated packages.
+
+### Files touched
+
+- `src/utils/config.ts`
+- `src/core/scorer.ts`
+- `src/core/analyzer.ts`
+- `src/reporters/console.ts`
+- `src/index.ts`
+- `depbrain.config.json`
+- `depbrain.config.schema.json`
+- `README.md`
+- `tests/run.js`
+- `docs/implementation-log.md`
+
+### Verification completed
+
+- `npm run typecheck`
+- `npm run test`

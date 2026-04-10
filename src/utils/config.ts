@@ -20,12 +20,19 @@ export interface DepBrainConfig {
   report: {
     maxSuggestions: number;
   };
+  scoring: {
+    duplicateWeight: number;
+    outdatedWeight: number;
+    unusedWeight: number;
+    riskWeight: number;
+  };
 }
 
 export interface DepBrainConfigOverrides {
   ignore?: Partial<DepBrainConfig["ignore"]>;
   policy?: Partial<DepBrainConfig["policy"]>;
   report?: Partial<DepBrainConfig["report"]>;
+  scoring?: Partial<DepBrainConfig["scoring"]>;
 }
 
 export const defaultConfig: DepBrainConfig = {
@@ -46,6 +53,12 @@ export const defaultConfig: DepBrainConfig = {
   },
   report: {
     maxSuggestions: 5
+  },
+  scoring: {
+    duplicateWeight: 5,
+    outdatedWeight: 3,
+    unusedWeight: 4,
+    riskWeight: 10
   }
 };
 
@@ -121,6 +134,24 @@ function normalizeConfig(loaded: Partial<DepBrainConfig>): DepBrainConfig {
       maxSuggestions: normalizeNumber(
         loaded.report?.maxSuggestions,
         defaultConfig.report.maxSuggestions
+      )
+    },
+    scoring: {
+      duplicateWeight: normalizeNumber(
+        loaded.scoring?.duplicateWeight,
+        defaultConfig.scoring.duplicateWeight
+      ),
+      outdatedWeight: normalizeNumber(
+        loaded.scoring?.outdatedWeight,
+        defaultConfig.scoring.outdatedWeight
+      ),
+      unusedWeight: normalizeNumber(
+        loaded.scoring?.unusedWeight,
+        defaultConfig.scoring.unusedWeight
+      ),
+      riskWeight: normalizeNumber(
+        loaded.scoring?.riskWeight,
+        defaultConfig.scoring.riskWeight
       )
     }
   };

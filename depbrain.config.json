@@ -16,5 +16,11 @@
   },
   "report": {
     "maxSuggestions": 5
+  },
+  "scoring": {
+    "duplicateWeight": 5,
+    "outdatedWeight": 3,
+    "unusedWeight": 4,
+    "riskWeight": 10
   }
 }

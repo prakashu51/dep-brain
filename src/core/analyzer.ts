@@ -52,6 +52,7 @@ export interface RiskDependency {
 export interface AnalysisResult {
   rootDir: string;
   score: number;
+  scoreBreakdown: ScoreBreakdown;
   policy: PolicyResult;
   duplicates: DuplicateDependency[];
   unused: UnusedDependency[];
@@ -71,12 +72,27 @@ export interface PackageAnalysisResult {
   name: string;
   rootDir: string;
   score: number;
+  scoreBreakdown: ScoreBreakdown;
   policy: PolicyResult;
   duplicates: DuplicateDependency[];
   unused: UnusedDependency[];
   outdated: OutdatedDependency[];
   risks: RiskDependency[];
   suggestions: string[];
+}
+
+export interface ScoreBreakdown {
+  baseScore: number;
+  duplicates: number;
+  outdated: number;
+  unused: number;
+  risks: number;
+  weights: {
+    duplicateWeight: number;
+    outdatedWeight: number;
+    unusedWeight: number;
+    riskWeight: number;
+  };
 }
 
 export async function analyzeProject(
@@ -119,8 +135,22 @@ export async function analyzeProject(
     duplicates: duplicates.length,
     unused: unused.length,
     outdated: outdated.length,
-    risks: risks.length
+    risks: risks.length,
+    duplicateWeight: config.scoring.duplicateWeight,
+    outdatedWeight: config.scoring.outdatedWeight,
+    unusedWeight: config.scoring.unusedWeight,
+    riskWeight: config.scoring.riskWeight
   });
+
+  const scoreBreakdown = buildScoreBreakdown(
+    {
+      duplicates: duplicates.length,
+      unused: unused.length,
+      outdated: outdated.length,
+      risks: risks.length
+    },
+    config
+  );
 
   const suggestions = [
     ...packages.flatMap((pkg) =>
@@ -142,6 +172,7 @@ export async function analyzeProject(
   return {
     rootDir,
     score,
+    scoreBreakdown,
     policy,
     duplicates,
     unused,
@@ -183,6 +214,15 @@ function mergeConfig(
     report: {
       maxSuggestions:
         overrides.report?.maxSuggestions ?? base.report.maxSuggestions
+    },
+    scoring: {
+      duplicateWeight:
+        overrides.scoring?.duplicateWeight ?? base.scoring.duplicateWeight,
+      outdatedWeight:
+        overrides.scoring?.outdatedWeight ?? base.scoring.outdatedWeight,
+      unusedWeight:
+        overrides.scoring?.unusedWeight ?? base.scoring.unusedWeight,
+      riskWeight: overrides.scoring?.riskWeight ?? base.scoring.riskWeight
     }
   };
 }
@@ -258,8 +298,22 @@ async function analyzeSingleProject(
     duplicates: duplicates.length,
     unused: unused.length,
     outdated: outdated.length,
-    risks: risks.length
+    risks: risks.length,
+    duplicateWeight: config.scoring.duplicateWeight,
+    outdatedWeight: config.scoring.outdatedWeight,
+    unusedWeight: config.scoring.unusedWeight,
+    riskWeight: config.scoring.riskWeight
   });
+
+  const scoreBreakdown = buildScoreBreakdown(
+    {
+      duplicates: duplicates.length,
+      unused: unused.length,
+      outdated: outdated.length,
+      risks: risks.length
+    },
+    config
+  );
 
   const suggestions = [
     ...unused.map((item) => `Remove ${item.name} from ${item.section}`),
@@ -299,6 +353,7 @@ async function analyzeSingleProject(
   return {
     rootDir,
     score,
+    scoreBreakdown,
     policy,
     duplicates,
     unused: scopedUnused,
@@ -306,5 +361,29 @@ async function analyzeSingleProject(
     risks: scopedRisks,
     suggestions,
     config
+  };
+}
+
+function buildScoreBreakdown(
+  counts: {
+    duplicates: number;
+    outdated: number;
+    unused: number;
+    risks: number;
+  },
+  config: DepBrainConfig
+): ScoreBreakdown {
+  return {
+    baseScore: 100,
+    duplicates: counts.duplicates * config.scoring.duplicateWeight,
+    outdated: counts.outdated * config.scoring.outdatedWeight,
+    unused: counts.unused * config.scoring.unusedWeight,
+    risks: counts.risks * config.scoring.riskWeight,
+    weights: {
+      duplicateWeight: config.scoring.duplicateWeight,
+      outdatedWeight: config.scoring.outdatedWeight,
+      unusedWeight: config.scoring.unusedWeight,
+      riskWeight: config.scoring.riskWeight
+    }
   };
 }

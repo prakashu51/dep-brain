@@ -107,6 +107,12 @@ Create a `depbrain.config.json` file in the project root:
   },
   "report": {
     "maxSuggestions": 3
+  },
+  "scoring": {
+    "duplicateWeight": 5,
+    "outdatedWeight": 1,
+    "unusedWeight": 2,
+    "riskWeight": 6
   }
 }
 ```
@@ -125,6 +131,10 @@ Supported sections:
 - `policy.failOnOutdated`
 - `policy.failOnRisks`
 - `report.maxSuggestions`
+- `scoring.duplicateWeight`
+- `scoring.outdatedWeight`
+- `scoring.unusedWeight`
+- `scoring.riskWeight`
 
 Sample config file:
 

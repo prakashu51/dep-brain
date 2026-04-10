@@ -6,6 +6,9 @@ export function renderConsoleReport(result: AnalysisResult): string {
   lines.push(`Project Health: ${result.score}/100`);
   lines.push(`Path: ${result.rootDir}`);
   lines.push(`Policy: ${result.policy.passed ? "PASS" : "FAIL"}`);
+  lines.push(
+    `Score Breakdown: base ${result.scoreBreakdown.baseScore} - dup ${result.scoreBreakdown.duplicates} - outdated ${result.scoreBreakdown.outdated} - unused ${result.scoreBreakdown.unused} - risk ${result.scoreBreakdown.risks}`
+  );
   lines.push("");
   lines.push(summaryLine("Duplicates", result.duplicates.length));
   lines.push(summaryLine("Unused", result.unused.length));
