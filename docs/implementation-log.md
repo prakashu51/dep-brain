@@ -375,3 +375,26 @@ Use this format for future entries:
 
 - `npm run typecheck`
 - `npm run test`
+
+## 2026-04-10 - JSON output stability iteration
+
+### What changed
+
+- Ensured `--json` always writes to stdout using `process.stdout.write`.
+- Added JSON error output when analysis fails with `--json`.
+- Added a test to ensure JSON report is non-empty.
+
+### Why it changed
+
+- Some environments saw empty output when redirecting JSON to a file.
+
+### Files touched
+
+- `src/cli.ts`
+- `tests/run.js`
+- `docs/implementation-log.md`
+
+### Verification completed
+
+- `npm run typecheck`
+- `npm run test`

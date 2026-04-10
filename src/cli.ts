@@ -93,21 +93,32 @@ async function main(): Promise<void> {
       configPath: optionValues.get("--config"),
       config: cliConfig
     });
-    const output = flags.has("--json")
-      ? renderJsonReport(result)
-      : renderConsoleReport(result);
-    if (!output || output.trim().length === 0) {
-      console.log(renderJsonReport(result));
+
+    if (flags.has("--json")) {
+      process.stdout.write(`${renderJsonReport(result)}\n`);
     } else {
-      console.log(output);
+      const output = renderConsoleReport(result);
+      if (!output || output.trim().length === 0) {
+        process.stdout.write(`${renderJsonReport(result)}\n`);
+      } else {
+        process.stdout.write(`${output}\n`);
+      }
     }
 
     if (!result.policy.passed) {
       process.exitCode = 1;
     }
   } catch (error) {
-    console.error("Analysis failed.");
-    console.error(error);
+    if (flags.has("--json")) {
+      const payload = {
+        error: "Analysis failed",
+        message: error instanceof Error ? error.message : String(error)
+      };
+      process.stdout.write(`${JSON.stringify(payload, null, 2)}\n`);
+    } else {
+      console.error("Analysis failed.");
+      console.error(error);
+    }
     process.exitCode = 1;
   }
 }
