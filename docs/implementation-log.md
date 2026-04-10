@@ -330,3 +330,26 @@ Use this format for future entries:
 ### Verification completed
 
 - Not run locally (GitHub Actions only)
+
+## 2026-04-10 - CLI help/version fix iteration
+
+### What changed
+
+- Fixed CLI parsing so `--help` works as a top-level flag.
+- Added `--version` support and error handling around analysis/config.
+- Updated README with version command.
+
+### Why it changed
+
+- Users running `npx dep-brain --help` were getting an unknown command error and silent runs.
+
+### Files touched
+
+- `src/cli.ts`
+- `README.md`
+- `docs/implementation-log.md`
+
+### Verification completed
+
+- `npm run typecheck`
+- `npm run test`
