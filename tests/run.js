@@ -10,6 +10,7 @@ import { calculateHealthScore } from "../dist/core/scorer.js";
 import { loadDepBrainConfig } from "../dist/utils/config.js";
 import { renderConsoleReport } from "../dist/reporters/console.js";
 import { renderJsonReport } from "../dist/reporters/json.js";
+import { renderMarkdownReport } from "../dist/reporters/markdown.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -267,6 +268,62 @@ const tests = [
           },
           report: {
             maxSuggestions: 5
+          }
+        }
+      });
+
+      assert.ok(report.trim().length > 0);
+    }
+  },
+  {
+    name: "markdown report is non-empty",
+    run: async () => {
+      const report = renderMarkdownReport({
+        rootDir: "D:/fixture",
+        score: 100,
+        scoreBreakdown: {
+          baseScore: 100,
+          duplicates: 0,
+          outdated: 0,
+          unused: 0,
+          risks: 0,
+          weights: {
+            duplicateWeight: 5,
+            outdatedWeight: 3,
+            unusedWeight: 4,
+            riskWeight: 10
+          }
+        },
+        policy: { passed: true, reasons: [] },
+        duplicates: [],
+        unused: [],
+        outdated: [],
+        risks: [],
+        suggestions: [],
+        config: {
+          ignore: {
+            dependencies: [],
+            devDependencies: [],
+            duplicates: [],
+            outdated: [],
+            risks: [],
+            unused: []
+          },
+          policy: {
+            minScore: 0,
+            failOnDuplicates: false,
+            failOnOutdated: false,
+            failOnRisks: false,
+            failOnUnused: false
+          },
+          report: {
+            maxSuggestions: 5
+          },
+          scoring: {
+            duplicateWeight: 5,
+            outdatedWeight: 3,
+            unusedWeight: 4,
+            riskWeight: 10
           }
         }
       });

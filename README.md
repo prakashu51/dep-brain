@@ -41,6 +41,7 @@ dep-brain analyze
 
 npx dep-brain analyze
 npx dep-brain analyze --json
+npx dep-brain analyze --md
 npx dep-brain analyze ./path-to-project
 npx dep-brain analyze --config depbrain.config.json
 npx dep-brain analyze --min-score 90 --fail-on-risks
@@ -88,6 +89,12 @@ Suggestions:
 
 ```bash
 dep-brain analyze --json
+```
+
+## Markdown Output
+
+```bash
+dep-brain analyze --md
 ```
 
 ## Config File
