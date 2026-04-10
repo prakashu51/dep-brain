@@ -6,6 +6,7 @@ export type {
   OutdatedDependency,
   PolicyResult,
   PackageAnalysisResult,
+  ScoreBreakdown,
   RiskDependency,
   UnusedDependency
 } from "./core/analyzer.js";

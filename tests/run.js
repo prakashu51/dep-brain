@@ -96,6 +96,19 @@ const tests = [
         }),
         67
       );
+      assert.equal(
+        calculateHealthScore({
+          duplicates: 2,
+          outdated: 3,
+          unused: 1,
+          risks: 1,
+          duplicateWeight: 2,
+          outdatedWeight: 1,
+          unusedWeight: 1,
+          riskWeight: 5
+        }),
+        87
+      );
     }
   },
   {
@@ -167,6 +180,19 @@ const tests = [
       const report = renderConsoleReport({
         rootDir: "D:/fixture",
         score: 100,
+        scoreBreakdown: {
+          baseScore: 100,
+          duplicates: 0,
+          outdated: 0,
+          unused: 0,
+          risks: 0,
+          weights: {
+            duplicateWeight: 5,
+            outdatedWeight: 3,
+            unusedWeight: 4,
+            riskWeight: 10
+          }
+        },
         policy: { passed: true, reasons: [] },
         duplicates: [],
         unused: [],
@@ -204,6 +230,19 @@ const tests = [
       const report = renderJsonReport({
         rootDir: "D:/fixture",
         score: 100,
+        scoreBreakdown: {
+          baseScore: 100,
+          duplicates: 0,
+          outdated: 0,
+          unused: 0,
+          risks: 0,
+          weights: {
+            duplicateWeight: 5,
+            outdatedWeight: 3,
+            unusedWeight: 4,
+            riskWeight: 10
+          }
+        },
         policy: { passed: true, reasons: [] },
         duplicates: [],
         unused: [],
