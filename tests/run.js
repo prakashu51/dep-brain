@@ -9,6 +9,7 @@ import { buildDependencyGraph } from "../dist/core/graph-builder.js";
 import { calculateHealthScore } from "../dist/core/scorer.js";
 import { loadDepBrainConfig } from "../dist/utils/config.js";
 import { renderConsoleReport } from "../dist/reporters/console.js";
+import { renderJsonReport } from "../dist/reporters/json.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -164,6 +165,43 @@ const tests = [
     name: "console report is non-empty",
     run: async () => {
       const report = renderConsoleReport({
+        rootDir: "D:/fixture",
+        score: 100,
+        policy: { passed: true, reasons: [] },
+        duplicates: [],
+        unused: [],
+        outdated: [],
+        risks: [],
+        suggestions: [],
+        config: {
+          ignore: {
+            dependencies: [],
+            devDependencies: [],
+            duplicates: [],
+            outdated: [],
+            risks: [],
+            unused: []
+          },
+          policy: {
+            minScore: 0,
+            failOnDuplicates: false,
+            failOnOutdated: false,
+            failOnRisks: false,
+            failOnUnused: false
+          },
+          report: {
+            maxSuggestions: 5
+          }
+        }
+      });
+
+      assert.ok(report.trim().length > 0);
+    }
+  },
+  {
+    name: "json report is non-empty",
+    run: async () => {
+      const report = renderJsonReport({
         rootDir: "D:/fixture",
         score: 100,
         policy: { passed: true, reasons: [] },
