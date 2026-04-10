@@ -3,6 +3,7 @@
 import { analyzeProject } from "./core/analyzer.js";
 import { renderConsoleReport } from "./reporters/console.js";
 import { renderJsonReport } from "./reporters/json.js";
+import { renderMarkdownReport } from "./reporters/markdown.js";
 import type { DepBrainConfig, DepBrainConfigOverrides } from "./utils/config.js";
 import { promises as fs } from "node:fs";
 import path from "node:path";
@@ -96,6 +97,8 @@ async function main(): Promise<void> {
 
     if (flags.has("--json")) {
       process.stdout.write(`${renderJsonReport(result)}\n`);
+    } else if (flags.has("--md")) {
+      process.stdout.write(`${renderMarkdownReport(result)}\n`);
     } else {
       const output = renderConsoleReport(result);
       if (!output || output.trim().length === 0) {
@@ -171,7 +174,7 @@ function printHelp(): void {
   console.log("");
   console.log("Usage:");
   console.log(
-    "  dep-brain analyze [path] [--json] [--config path] [--min-score n] [--fail-on-risks] [--fail-on-outdated] [--fail-on-unused] [--fail-on-duplicates]"
+    "  dep-brain analyze [path] [--json] [--md] [--config path] [--min-score n] [--fail-on-risks] [--fail-on-outdated] [--fail-on-unused] [--fail-on-duplicates]"
   );
   console.log("  dep-brain config [path] [--config path]");
   console.log("  dep-brain help");
@@ -179,6 +182,7 @@ function printHelp(): void {
   console.log("");
   console.log("Options:");
   console.log("  --json              Output JSON for analysis");
+  console.log("  --md                Output Markdown report");
   console.log("  --config <path>     Path to depbrain.config.json");
   console.log("  --min-score <n>     Minimum score required to pass");
   console.log("  --fail-on-risks     Fail when risky dependencies exist");

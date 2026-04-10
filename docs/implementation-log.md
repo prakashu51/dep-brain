@@ -429,3 +429,43 @@ Use this format for future entries:
 
 - `npm run typecheck`
 - `npm run test`
+
+## 2026-04-10 - v1 readiness planning iteration
+
+### What changed
+
+- Added a v1.0 readiness checklist and milestone plan.
+
+### Why it changed
+
+- To align future work with a clear v1 target and release discipline.
+
+### Files touched
+
+- `docs/v1-readiness.md`
+- `docs/implementation-log.md`
+
+## 2026-04-10 - Markdown report iteration
+
+### What changed
+
+- Added Markdown report output (`--md`) for analysis.
+- Added markdown reporter and test coverage.
+- Updated README with markdown usage.
+
+### Why it changed
+
+- Markdown output is a core v0.3 milestone and supports PR/CI workflows.
+
+### Files touched
+
+- `src/reporters/markdown.ts`
+- `src/cli.ts`
+- `README.md`
+- `tests/run.js`
+- `docs/implementation-log.md`
+
+### Verification completed
+
+- `npm run typecheck`
+- `npm run test`
