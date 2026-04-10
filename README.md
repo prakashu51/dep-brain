@@ -46,6 +46,7 @@ npx dep-brain analyze ./path-to-project
 npx dep-brain analyze --config depbrain.config.json
 npx dep-brain analyze --min-score 90 --fail-on-risks
 npx dep-brain analyze ./path-to-project --fail-on-unused --json
+ npx dep-brain analyze --md > depbrain.md
 
 dep-brain config
 dep-brain config --config depbrain.config.json
@@ -109,7 +110,9 @@ Create a `depbrain.config.json` file in the project root:
 {
   "ignore": {
     "unused": ["eslint"],
-    "outdated": ["typescript"]
+    "outdated": ["typescript"],
+    "prefixes": ["@nestjs/"],
+    "patterns": ["^@aws-sdk/"]
   },
   "policy": {
     "minScore": 90,
@@ -124,6 +127,9 @@ Create a `depbrain.config.json` file in the project root:
     "outdatedWeight": 1,
     "unusedWeight": 2,
     "riskWeight": 6
+  },
+  "scan": {
+    "excludePaths": ["node_modules", "dist", "build", "coverage", ".git"]
   }
 }
 ```
@@ -146,6 +152,9 @@ Supported sections:
 - `scoring.outdatedWeight`
 - `scoring.unusedWeight`
 - `scoring.riskWeight`
+- `ignore.prefixes`
+- `ignore.patterns`
+- `scan.excludePaths`
 
 Sample config file:
 

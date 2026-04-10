@@ -9,6 +9,8 @@ export interface DepBrainConfig {
     outdated: string[];
     risks: string[];
     unused: string[];
+    prefixes: string[];
+    patterns: string[];
   };
   policy: {
     minScore: number;
@@ -26,6 +28,9 @@ export interface DepBrainConfig {
     unusedWeight: number;
     riskWeight: number;
   };
+  scan: {
+    excludePaths: string[];
+  };
 }
 
 export interface DepBrainConfigOverrides {
@@ -33,6 +38,7 @@ export interface DepBrainConfigOverrides {
   policy?: Partial<DepBrainConfig["policy"]>;
   report?: Partial<DepBrainConfig["report"]>;
   scoring?: Partial<DepBrainConfig["scoring"]>;
+  scan?: Partial<DepBrainConfig["scan"]>;
 }
 
 export const defaultConfig: DepBrainConfig = {
@@ -42,7 +48,9 @@ export const defaultConfig: DepBrainConfig = {
     duplicates: [],
     outdated: [],
     risks: [],
-    unused: []
+    unused: [],
+    prefixes: [],
+    patterns: []
   },
   policy: {
     minScore: 0,
@@ -59,6 +67,9 @@ export const defaultConfig: DepBrainConfig = {
     outdatedWeight: 3,
     unusedWeight: 4,
     riskWeight: 10
+  },
+  scan: {
+    excludePaths: ["node_modules", "dist", "build", "coverage", ".git"]
   }
 };
 
@@ -103,6 +114,14 @@ function normalizeConfig(loaded: Partial<DepBrainConfig>): DepBrainConfig {
       unused: normalizeStringArray(
         loaded.ignore?.unused,
         defaultConfig.ignore.unused
+      ),
+      prefixes: normalizeStringArray(
+        loaded.ignore?.prefixes,
+        defaultConfig.ignore.prefixes
+      ),
+      patterns: normalizeStringArray(
+        loaded.ignore?.patterns,
+        defaultConfig.ignore.patterns
       )
     },
     policy: {
@@ -152,6 +171,12 @@ function normalizeConfig(loaded: Partial<DepBrainConfig>): DepBrainConfig {
       riskWeight: normalizeNumber(
         loaded.scoring?.riskWeight,
         defaultConfig.scoring.riskWeight
+      )
+    },
+    scan: {
+      excludePaths: normalizeStringArray(
+        loaded.scan?.excludePaths,
+        defaultConfig.scan.excludePaths
       )
     }
   };

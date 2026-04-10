@@ -496,3 +496,35 @@ Use this format for future entries:
 
 - `npm run typecheck`
 - `npm run test`
+
+## 2026-04-10 - v0.4 ignore and scan iteration
+
+### What changed
+
+- Added ignore by prefix and regex pattern support.
+- Added scan exclude paths for file collection.
+- Updated config schema, sample config, and README.
+- Added tests for ignore rules and excluded paths.
+
+### Why it changed
+
+- Prefix/pattern ignores reduce noise in real repos and scans.
+
+### Files touched
+
+- `src/utils/config.ts`
+- `src/utils/file-parser.ts`
+- `src/checks/unused.ts`
+- `src/core/analyzer.ts`
+- `depbrain.config.json`
+- `depbrain.config.schema.json`
+- `README.md`
+- `tests/run.js`
+- `tests/fixtures/exclude-project/src/index.ts`
+- `tests/fixtures/exclude-project/dist/ignored.js`
+- `docs/implementation-log.md`
+
+### Verification completed
+
+- `npm run typecheck`
+- `npm run test`

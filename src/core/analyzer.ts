@@ -113,7 +113,7 @@ export async function analyzeProject(
   const rootGraph = await buildDependencyGraph(rootDir);
   const rawDuplicates = await findDuplicateDependencies(rootGraph);
   const duplicates = rawDuplicates.filter(
-    (item) => !config.ignore.duplicates.includes(item.name)
+    (item) => !shouldIgnorePackage(item.name, "duplicates", config)
   );
 
   const packages: PackageAnalysisResult[] = [];
@@ -204,7 +204,9 @@ function mergeConfig(
       duplicates: overrides.ignore?.duplicates ?? base.ignore.duplicates,
       outdated: overrides.ignore?.outdated ?? base.ignore.outdated,
       risks: overrides.ignore?.risks ?? base.ignore.risks,
-      unused: overrides.ignore?.unused ?? base.ignore.unused
+      unused: overrides.ignore?.unused ?? base.ignore.unused,
+      prefixes: overrides.ignore?.prefixes ?? base.ignore.prefixes,
+      patterns: overrides.ignore?.patterns ?? base.ignore.patterns
     },
     policy: {
       minScore: overrides.policy?.minScore ?? base.policy.minScore,
@@ -227,6 +229,10 @@ function mergeConfig(
       unusedWeight:
         overrides.scoring?.unusedWeight ?? base.scoring.unusedWeight,
       riskWeight: overrides.scoring?.riskWeight ?? base.scoring.riskWeight
+    },
+    scan: {
+      excludePaths:
+        overrides.scan?.excludePaths ?? base.scan.excludePaths
     }
   };
 }
@@ -280,23 +286,27 @@ async function analyzeSingleProject(
 
   const [rawDuplicates, rawUnused, rawOutdated, rawRisks] = await Promise.all([
     findDuplicateDependencies(graph),
-    findUnusedDependencies(rootDir, graph),
+    findUnusedDependencies(rootDir, graph, {
+      excludePaths: config.scan.excludePaths
+    }),
     findOutdatedDependencies(graph),
     findRiskDependencies(graph)
   ]);
 
   const duplicates = rawDuplicates.filter(
-    (item) => !config.ignore.duplicates.includes(item.name)
+    (item) => !shouldIgnorePackage(item.name, "duplicates", config)
   );
   const unused = rawUnused.filter(
     (item) =>
-      !config.ignore.unused.includes(item.name) &&
-      !config.ignore[item.section].includes(item.name)
+      !shouldIgnorePackage(item.name, "unused", config) &&
+      !shouldIgnorePackage(item.name, item.section, config)
   );
   const outdated = rawOutdated.filter(
-    (item) => !config.ignore.outdated.includes(item.name)
+    (item) => !shouldIgnorePackage(item.name, "outdated", config)
   );
-  const risks = rawRisks.filter((item) => !config.ignore.risks.includes(item.name));
+  const risks = rawRisks.filter(
+    (item) => !shouldIgnorePackage(item.name, "risks", config)
+  );
 
   const score = calculateHealthScore({
     duplicates: duplicates.length,
@@ -367,6 +377,29 @@ async function analyzeSingleProject(
     suggestions,
     config
   };
+}
+
+function shouldIgnorePackage(
+  name: string,
+  bucket: "dependencies" | "devDependencies" | "unused" | "duplicates" | "outdated" | "risks",
+  config: DepBrainConfig
+): boolean {
+  if (config.ignore[bucket].includes(name)) {
+    return true;
+  }
+
+  if (config.ignore.prefixes.some((prefix) => name.startsWith(prefix))) {
+    return true;
+  }
+
+  return config.ignore.patterns.some((pattern) => {
+    try {
+      const regex = new RegExp(pattern);
+      return regex.test(name);
+    } catch {
+      return false;
+    }
+  });
 }
 
 function buildScoreBreakdown(
