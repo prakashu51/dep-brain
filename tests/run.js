@@ -179,6 +179,7 @@ const tests = [
     name: "console report is non-empty",
     run: async () => {
       const report = renderConsoleReport({
+        outputVersion: "1.0",
         rootDir: "D:/fixture",
         score: 100,
         scoreBreakdown: {
@@ -229,6 +230,7 @@ const tests = [
     name: "json report is non-empty",
     run: async () => {
       const report = renderJsonReport({
+        outputVersion: "1.0",
         rootDir: "D:/fixture",
         score: 100,
         scoreBreakdown: {
@@ -279,6 +281,7 @@ const tests = [
     name: "markdown report is non-empty",
     run: async () => {
       const report = renderMarkdownReport({
+        outputVersion: "1.0",
         rootDir: "D:/fixture",
         score: 100,
         scoreBreakdown: {

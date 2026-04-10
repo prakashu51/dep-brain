@@ -1,6 +1,6 @@
 {
   "name": "dep-brain",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "CLI and library for dependency health analysis",
   "type": "module",
   "main": "dist/index.js",
@@ -14,7 +14,8 @@
     "LICENSE",
     "CHANGELOG.md",
     "depbrain.config.json",
-    "depbrain.config.schema.json"
+    "depbrain.config.schema.json",
+    "depbrain.output.schema.json"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",

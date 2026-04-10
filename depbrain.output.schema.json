@@ -1,0 +1,112 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Dependency Brain Analysis Output",
+  "type": "object",
+  "required": ["outputVersion", "rootDir", "score", "scoreBreakdown", "policy", "duplicates", "unused", "outdated", "risks", "suggestions", "config"],
+  "additionalProperties": false,
+  "properties": {
+    "outputVersion": { "type": "string" },
+    "rootDir": { "type": "string" },
+    "score": { "type": "number" },
+    "scoreBreakdown": {
+      "type": "object",
+      "required": ["baseScore", "duplicates", "outdated", "unused", "risks", "weights"],
+      "additionalProperties": false,
+      "properties": {
+        "baseScore": { "type": "number" },
+        "duplicates": { "type": "number" },
+        "outdated": { "type": "number" },
+        "unused": { "type": "number" },
+        "risks": { "type": "number" },
+        "weights": {
+          "type": "object",
+          "required": ["duplicateWeight", "outdatedWeight", "unusedWeight", "riskWeight"],
+          "additionalProperties": false,
+          "properties": {
+            "duplicateWeight": { "type": "number" },
+            "outdatedWeight": { "type": "number" },
+            "unusedWeight": { "type": "number" },
+            "riskWeight": { "type": "number" }
+          }
+        }
+      }
+    },
+    "policy": {
+      "type": "object",
+      "required": ["passed", "reasons"],
+      "additionalProperties": false,
+      "properties": {
+        "passed": { "type": "boolean" },
+        "reasons": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "duplicates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "versions", "instances"],
+        "additionalProperties": false,
+        "properties": {
+          "name": { "type": "string" },
+          "versions": { "type": "array", "items": { "type": "string" } },
+          "instances": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["path", "version"],
+              "additionalProperties": false,
+              "properties": {
+                "path": { "type": "string" },
+                "version": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "unused": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "section"],
+        "additionalProperties": false,
+        "properties": {
+          "name": { "type": "string" },
+          "section": { "type": "string", "enum": ["dependencies", "devDependencies"] },
+          "package": { "type": "string" }
+        }
+      }
+    },
+    "outdated": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "current", "latest", "updateType"],
+        "additionalProperties": false,
+        "properties": {
+          "name": { "type": "string" },
+          "current": { "type": "string" },
+          "latest": { "type": "string" },
+          "updateType": { "type": "string" },
+          "package": { "type": "string" }
+        }
+      }
+    },
+    "risks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "reasons"],
+        "additionalProperties": false,
+        "properties": {
+          "name": { "type": "string" },
+          "reasons": { "type": "array", "items": { "type": "string" } },
+          "package": { "type": "string" }
+        }
+      }
+    },
+    "suggestions": { "type": "array", "items": { "type": "string" } },
+    "config": { "type": "object" },
+    "packages": { "type": "array" }
+  }
+}
