@@ -353,3 +353,25 @@ Use this format for future entries:
 
 - `npm run typecheck`
 - `npm run test`
+
+## 2026-04-10 - Console output guard iteration
+
+### What changed
+
+- Added a fallback so `analyze` prints JSON if console output is empty.
+- Added a test to ensure console report is non-empty.
+
+### Why it changed
+
+- Some environments showed blank output for `npx dep-brain analyze` despite valid JSON output.
+
+### Files touched
+
+- `src/cli.ts`
+- `tests/run.js`
+- `docs/implementation-log.md`
+
+### Verification completed
+
+- `npm run typecheck`
+- `npm run test`

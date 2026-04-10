@@ -1,6 +1,6 @@
 {
   "name": "dep-brain",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "CLI and library for dependency health analysis",
   "type": "module",
   "main": "dist/index.js",

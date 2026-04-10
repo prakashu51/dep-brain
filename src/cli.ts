@@ -93,9 +93,14 @@ async function main(): Promise<void> {
       configPath: optionValues.get("--config"),
       config: cliConfig
     });
-    console.log(
-      flags.has("--json") ? renderJsonReport(result) : renderConsoleReport(result)
-    );
+    const output = flags.has("--json")
+      ? renderJsonReport(result)
+      : renderConsoleReport(result);
+    if (!output || output.trim().length === 0) {
+      console.log(renderJsonReport(result));
+    } else {
+      console.log(output);
+    }
 
     if (!result.policy.passed) {
       process.exitCode = 1;
