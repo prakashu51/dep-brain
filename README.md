@@ -91,6 +91,10 @@ Suggestions:
 dep-brain analyze --json
 ```
 
+Output includes `outputVersion` for schema stability and can be validated with:
+
+- `depbrain.output.schema.json`
+
 ## Markdown Output
 
 ```bash
@@ -147,6 +151,7 @@ Sample config file:
 
 - `depbrain.config.json`
 - `depbrain.config.schema.json`
+- `depbrain.output.schema.json`
 
 ## CI Behavior
 

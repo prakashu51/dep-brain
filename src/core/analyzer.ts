@@ -50,6 +50,7 @@ export interface RiskDependency {
 }
 
 export interface AnalysisResult {
+  outputVersion: string;
   rootDir: string;
   score: number;
   scoreBreakdown: ScoreBreakdown;
@@ -80,6 +81,8 @@ export interface PackageAnalysisResult {
   risks: RiskDependency[];
   suggestions: string[];
 }
+
+export const OUTPUT_VERSION = "1.0";
 
 export interface ScoreBreakdown {
   baseScore: number;
@@ -170,6 +173,7 @@ export async function analyzeProject(
   );
 
   return {
+    outputVersion: OUTPUT_VERSION,
     rootDir,
     score,
     scoreBreakdown,
@@ -351,6 +355,7 @@ async function analyzeSingleProject(
       : risks;
 
   return {
+    outputVersion: OUTPUT_VERSION,
     rootDir,
     score,
     scoreBreakdown,

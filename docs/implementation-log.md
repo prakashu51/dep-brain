@@ -469,3 +469,30 @@ Use this format for future entries:
 
 - `npm run typecheck`
 - `npm run test`
+
+## 2026-04-10 - v0.3 output schema iteration
+
+### What changed
+
+- Added `outputVersion` to analysis output.
+- Added output JSON schema file.
+- Updated README and package files list.
+
+### Why it changed
+
+- We need a stable output contract for CI and downstream tooling.
+
+### Files touched
+
+- `src/core/analyzer.ts`
+- `src/index.ts`
+- `depbrain.output.schema.json`
+- `package.json`
+- `README.md`
+- `tests/run.js`
+- `docs/implementation-log.md`
+
+### Verification completed
+
+- `npm run typecheck`
+- `npm run test`
