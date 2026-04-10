@@ -51,6 +51,7 @@ dep-brain config --config depbrain.config.json
 
 dep-brain help
 dep-brain analyze --help
+dep-brain --version
 ```
 
 ## Workspaces
