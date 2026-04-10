@@ -13,7 +13,9 @@
         "unused": { "type": "array", "items": { "type": "string" } },
         "duplicates": { "type": "array", "items": { "type": "string" } },
         "outdated": { "type": "array", "items": { "type": "string" } },
-        "risks": { "type": "array", "items": { "type": "string" } }
+        "risks": { "type": "array", "items": { "type": "string" } },
+        "prefixes": { "type": "array", "items": { "type": "string" } },
+        "patterns": { "type": "array", "items": { "type": "string" } }
       }
     },
     "policy": {
@@ -42,6 +44,13 @@
         "outdatedWeight": { "type": "number" },
         "unusedWeight": { "type": "number" },
         "riskWeight": { "type": "number" }
+      }
+    },
+    "scan": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "excludePaths": { "type": "array", "items": { "type": "string" } }
       }
     }
   }

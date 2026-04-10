@@ -11,6 +11,7 @@ import { loadDepBrainConfig } from "../dist/utils/config.js";
 import { renderConsoleReport } from "../dist/reporters/console.js";
 import { renderJsonReport } from "../dist/reporters/json.js";
 import { renderMarkdownReport } from "../dist/reporters/markdown.js";
+import { collectProjectFiles } from "../dist/utils/file-parser.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -176,6 +177,24 @@ const tests = [
     }
   },
   {
+    name: "ignore prefixes and patterns apply across checks",
+    run: async () => {
+      const fixtureRoot = path.join(__dirname, "fixtures", "config-project");
+      const result = await analyzeProject({
+        rootDir: fixtureRoot,
+        config: {
+          ignore: {
+            prefixes: ["@types/"],
+            patterns: ["^tsx$"]
+          }
+        }
+      });
+
+      assert.ok(result.unused.every((item) => !item.name.startsWith("@types/")));
+      assert.ok(result.unused.every((item) => item.name !== "tsx"));
+    }
+  },
+  {
     name: "console report is non-empty",
     run: async () => {
       const report = renderConsoleReport({
@@ -332,6 +351,21 @@ const tests = [
       });
 
       assert.ok(report.trim().length > 0);
+    }
+  },
+  {
+    name: "collectProjectFiles respects exclude paths",
+    run: async () => {
+      const fixtureRoot = path.join(__dirname, "fixtures", "exclude-project");
+      const files = await collectProjectFiles(
+        fixtureRoot,
+        /\.(c|m)?(t|j)sx?$/,
+        ["dist/**"]
+      );
+
+      const normalized = files.map((file) => file.replace(/\\/g, "/"));
+      assert.ok(normalized.some((file) => file.includes("/src/")));
+      assert.ok(normalized.every((file) => !file.includes("/dist/")));
     }
   }
 ];

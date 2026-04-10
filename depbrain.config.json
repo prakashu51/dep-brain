@@ -5,7 +5,9 @@
     "duplicates": [],
     "risks": [],
     "dependencies": [],
-    "devDependencies": []
+    "devDependencies": [],
+    "prefixes": [],
+    "patterns": []
   },
   "policy": {
     "minScore": 85,
@@ -22,5 +24,8 @@
     "outdatedWeight": 3,
     "unusedWeight": 4,
     "riskWeight": 10
+  },
+  "scan": {
+    "excludePaths": ["node_modules", "dist", "build", "coverage", ".git"]
   }
 }

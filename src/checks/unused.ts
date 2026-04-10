@@ -11,9 +11,14 @@ const RUNTIME_DIR_PATTERN = /(^|[\\/])(src|app|lib|server|client|pages|component
 
 export async function findUnusedDependencies(
   rootDir: string,
-  graph: DependencyGraph
+  graph: DependencyGraph,
+  options: { excludePaths?: string[] } = {}
 ): Promise<UnusedDependency[]> {
-  const files = await collectProjectFiles(rootDir, SOURCE_FILE_PATTERN);
+  const files = await collectProjectFiles(
+    rootDir,
+    SOURCE_FILE_PATTERN,
+    options.excludePaths ?? []
+  );
   const projectFiles = files.filter(
     (filePath) => !filePath.includes(`${path.sep}node_modules${path.sep}`)
   );

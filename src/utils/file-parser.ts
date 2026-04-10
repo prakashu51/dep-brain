@@ -12,20 +12,42 @@ export async function readTextFile(filePath: string): Promise<string> {
 
 export async function collectProjectFiles(
   rootDir: string,
-  pattern: RegExp
+  pattern: RegExp,
+  excludePaths: string[] = []
 ): Promise<string[]> {
-  const entries = await fs.readdir(rootDir, { withFileTypes: true });
+  return collectProjectFilesInternal(rootDir, rootDir, pattern, excludePaths);
+}
+
+async function collectProjectFilesInternal(
+  currentDir: string,
+  baseDir: string,
+  pattern: RegExp,
+  excludePaths: string[]
+): Promise<string[]> {
+  const entries = await fs.readdir(currentDir, { withFileTypes: true });
   const files: string[] = [];
 
   for (const entry of entries) {
-    const fullPath = path.join(rootDir, entry.name);
+    const fullPath = path.join(currentDir, entry.name);
+    const relPath = path.relative(baseDir, fullPath);
+
+    if (matchesAnyPattern(relPath, excludePaths)) {
+      continue;
+    }
 
     if (entry.isDirectory()) {
       if (entry.name === ".git") {
         continue;
       }
 
-      files.push(...(await collectProjectFiles(fullPath, pattern)));
+      files.push(
+        ...(await collectProjectFilesInternal(
+          fullPath,
+          baseDir,
+          pattern,
+          excludePaths
+        ))
+      );
       continue;
     }
 
@@ -35,4 +57,33 @@ export async function collectProjectFiles(
   }
 
   return files;
+}
+
+function matchesAnyPattern(value: string, patterns: string[]): boolean {
+  if (patterns.length === 0) {
+    return false;
+  }
+
+  const normalized = normalizePath(value);
+
+  return patterns.some((pattern) => {
+    const regex = globToRegExp(pattern);
+    return regex.test(normalized);
+  });
+}
+
+function globToRegExp(pattern: string): RegExp {
+  const normalized = normalizePath(pattern)
+    .replace(/\/+$/, "")
+    .replace(/^\//, "")
+    .replace(/[.+^${}()|[\]\\]/g, "\\$&")
+    .replace(/\*\*/g, "___DEPBRAIN_GLOBSTAR___")
+    .replace(/\*/g, "[^/]*")
+    .replace(/___DEPBRAIN_GLOBSTAR___/g, ".*");
+
+  return new RegExp(`(^|.*/)${normalized}($|/.*)`);
+}
+
+function normalizePath(value: string): string {
+  return value.split(path.sep).join("/");
 }
