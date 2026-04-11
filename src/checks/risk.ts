@@ -1,5 +1,6 @@
 import type { DependencyGraph } from "../core/graph-builder.js";
 import type { RiskDependency } from "../core/analyzer.js";
+import type { CheckResult } from "../core/types.js";
 import { getPackageMetadata } from "../utils/npm-api.js";
 
 const TWO_YEARS_IN_DAYS = 365 * 2;
@@ -44,4 +45,24 @@ export async function findRiskDependencies(
   return results
     .filter((item): item is RiskDependency => item !== null)
     .sort((left, right) => left.name.localeCompare(right.name));
+}
+
+export async function runRiskCheck(
+  graph: DependencyGraph
+): Promise<CheckResult> {
+  const risks = await findRiskDependencies(graph);
+
+  return {
+    name: "risk",
+    summary: `${risks.length} risky dependencies found`,
+    issues: risks.map((item) => ({
+      id: `risk:${item.name}`,
+      message: `${item.name}: ${item.reasons.join("; ")}`,
+      severity: "warning",
+      meta: {
+        name: item.name,
+        reasons: item.reasons
+      }
+    }))
+  };
 }

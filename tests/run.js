@@ -12,6 +12,8 @@ import { renderConsoleReport } from "../dist/reporters/console.js";
 import { renderJsonReport } from "../dist/reporters/json.js";
 import { renderMarkdownReport } from "../dist/reporters/markdown.js";
 import { collectProjectFiles } from "../dist/utils/file-parser.js";
+import { buildAnalysisContext } from "../dist/core/context.js";
+import { defaultConfig } from "../dist/utils/config.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -77,8 +79,13 @@ const tests = [
     name: "unused detection respects scripts and TypeScript helpers",
     run: async () => {
       const fixtureRoot = path.join(__dirname, "fixtures", "unused-project");
-      const graph = await buildDependencyGraph(fixtureRoot);
-      const unused = await findUnusedDependencies(fixtureRoot, graph);
+      const context = await buildAnalysisContext(fixtureRoot, defaultConfig);
+      const unused = await findUnusedDependencies(
+        fixtureRoot,
+        context.graph,
+        context.fileEntries,
+        { hasTypeScriptConfig: context.hasTypeScriptConfig }
+      );
 
       assert.deepEqual(unused, [
         { name: "unused-dev-tool", section: "devDependencies" },
