@@ -1,5 +1,6 @@
 import path from "node:path";
 import { readJsonFile } from "./file-parser.js";
+import { resolveWithinRoot } from "./path.js";
 
 export interface DepBrainConfig {
   ignore: {
@@ -77,7 +78,10 @@ export async function loadDepBrainConfig(
   rootDir: string,
   configPath?: string
 ): Promise<DepBrainConfig> {
-  const resolvedPath = path.resolve(rootDir, configPath ?? "depbrain.config.json");
+  const resolvedPath = resolveWithinRoot(
+    rootDir,
+    configPath ?? "depbrain.config.json"
+  );
 
   try {
     const loaded = await readJsonFile<Partial<DepBrainConfig>>(resolvedPath);

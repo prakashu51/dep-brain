@@ -1,6 +1,7 @@
 import path from "node:path";
 import { buildDependencyGraph } from "./graph-builder.js";
 import { collectProjectFiles, readTextFile } from "../utils/file-parser.js";
+import { resolveWithinRoot } from "../utils/path.js";
 
 import type { AnalysisContext } from "./types.js";
 import type { DepBrainConfig } from "../utils/config.js";
@@ -11,9 +12,10 @@ export async function buildAnalysisContext(
   rootDir: string,
   config: DepBrainConfig
 ): Promise<AnalysisContext> {
-  const graph = await buildDependencyGraph(rootDir);
+  const resolvedRoot = path.resolve(rootDir);
+  const graph = await buildDependencyGraph(resolvedRoot);
   const projectFiles = await collectProjectFiles(
-    rootDir,
+    resolvedRoot,
     SOURCE_FILE_PATTERN,
     config.scan.excludePaths
   );
@@ -24,10 +26,10 @@ export async function buildAnalysisContext(
     }))
   );
   const sourceText = fileEntries.map((entry) => entry.content).join("\n");
-  const hasTypeScriptConfig = await hasFile(rootDir, "tsconfig.json");
+  const hasTypeScriptConfig = await hasFile(resolvedRoot, "tsconfig.json");
 
   return {
-    rootDir,
+    rootDir: resolvedRoot,
     graph,
     sourceText,
     projectFiles,
@@ -38,7 +40,8 @@ export async function buildAnalysisContext(
 
 async function hasFile(rootDir: string, fileName: string): Promise<boolean> {
   try {
-    await readTextFile(path.join(rootDir, fileName));
+    const resolved = resolveWithinRoot(rootDir, fileName);
+    await readTextFile(resolved);
     return true;
   } catch {
     return false;

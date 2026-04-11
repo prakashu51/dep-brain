@@ -1,5 +1,6 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import { isWithinRoot } from "./path.js";
 
 export async function readJsonFile<T>(filePath: string): Promise<T> {
   const content = await fs.readFile(filePath, "utf8");
@@ -24,6 +25,10 @@ async function collectProjectFilesInternal(
   pattern: RegExp,
   excludePaths: string[]
 ): Promise<string[]> {
+  if (!isWithinRoot(baseDir, currentDir)) {
+    return [];
+  }
+
   const entries = await fs.readdir(currentDir, { withFileTypes: true });
   const files: string[] = [];
 
