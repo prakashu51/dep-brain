@@ -1,6 +1,7 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { readJsonFile } from "./file-parser.js";
+import { isWithinRoot, resolveWithinRoot } from "./path.js";
 
 export interface WorkspacePackage {
   name: string;
@@ -61,6 +62,9 @@ async function collectPackageJsonFiles(rootDir: string): Promise<string[]> {
     }
 
     const fullPath = path.join(rootDir, entry.name);
+    if (!isWithinRoot(rootDir, fullPath)) {
+      continue;
+    }
 
     if (entry.isDirectory()) {
       files.push(...(await collectPackageJsonFiles(fullPath)));
@@ -68,7 +72,12 @@ async function collectPackageJsonFiles(rootDir: string): Promise<string[]> {
     }
 
     if (entry.isFile() && entry.name === "package.json") {
-      files.push(fullPath);
+      try {
+        const resolved = resolveWithinRoot(rootDir, fullPath);
+        files.push(resolved);
+      } catch {
+        continue;
+      }
     }
   }
 

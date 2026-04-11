@@ -78,7 +78,9 @@ async function main(): Promise<void> {
 
     if (command === "config") {
       if (!(await hasPackageJson(targetPath))) {
-        console.error(`No package.json found at ${targetPath}`);
+        console.error(
+          `No package.json found at ${sanitizeForLog(targetPath)}`
+        );
         process.exitCode = 1;
         return;
       }
@@ -100,14 +102,14 @@ async function main(): Promise<void> {
       }
     }
 
-    console.error(`Unknown command: ${command}`);
+    console.error(`Unknown command: ${sanitizeForLog(command)}`);
     printHelp();
     process.exitCode = 1;
     return;
   }
 
   if (!(await hasPackageJson(targetPath))) {
-    console.error(`No package.json found at ${targetPath}`);
+    console.error(`No package.json found at ${sanitizeForLog(targetPath)}`);
     process.exitCode = 1;
     return;
   }
@@ -241,4 +243,8 @@ async function writeOutput(output: string, outPath?: string): Promise<void> {
   }
 
   process.stdout.write(`${output}\n`);
+}
+
+function sanitizeForLog(value: string): string {
+  return value.replace(/[\r\n]+/g, " ").trim();
 }
