@@ -5,7 +5,7 @@ export function resolveWithinRoot(rootDir: string, targetPath: string): string {
   const resolvedTarget = path.resolve(resolvedRoot, targetPath);
 
   if (!isWithinRoot(resolvedRoot, resolvedTarget)) {
-    throw new Error(`Path is خارج root: ${resolvedTarget}`);
+    throw new Error(`Path is outside root: ${resolvedTarget}`);
   }
 
   return resolvedTarget;
