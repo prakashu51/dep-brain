@@ -61,7 +61,8 @@ async function main(): Promise<void> {
       }
 
       try {
-        const raw = await fs.readFile(fromPath, "utf8");
+        const resolvedFrom = resolveUserPath(fromPath);
+        const raw = await fs.readFile(resolvedFrom, "utf8");
         const reportData = JSON.parse(raw);
         const output = flags.has("--json")
           ? JSON.stringify(reportData, null, 2)
@@ -238,7 +239,8 @@ async function loadPackageVersion(): Promise<string | null> {
 
 async function writeOutput(output: string, outPath?: string): Promise<void> {
   if (outPath) {
-    await fs.writeFile(outPath, `${output}\n`, "utf8");
+    const resolved = resolveUserPath(outPath);
+    await fs.writeFile(resolved, `${output}\n`, "utf8");
     return;
   }
 
@@ -247,4 +249,8 @@ async function writeOutput(output: string, outPath?: string): Promise<void> {
 
 function sanitizeForLog(value: string): string {
   return value.replace(/[\r\n]+/g, " ").trim();
+}
+
+function resolveUserPath(value: string): string {
+  return path.resolve(process.cwd(), value);
 }
