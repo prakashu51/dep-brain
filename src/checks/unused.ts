@@ -1,7 +1,7 @@
 import path from "node:path";
 import type { UnusedDependency } from "../core/analyzer.js";
 import type { DependencyGraph } from "../core/graph-builder.js";
-import { collectProjectFiles, readTextFile } from "../utils/file-parser.js";
+import type { AnalysisContext, CheckResult } from "../core/types.js";
 
 const SOURCE_FILE_PATTERN = /\.(c|m)?(t|j)sx?$/;
 const CONFIG_FILE_PATTERN =
@@ -12,23 +12,22 @@ const RUNTIME_DIR_PATTERN = /(^|[\\/])(src|app|lib|server|client|pages|component
 export async function findUnusedDependencies(
   rootDir: string,
   graph: DependencyGraph,
-  options: { excludePaths?: string[] } = {}
+  fileEntries: { path: string; content: string }[],
+  options: { hasTypeScriptConfig: boolean }
 ): Promise<UnusedDependency[]> {
-  const files = await collectProjectFiles(
-    rootDir,
-    SOURCE_FILE_PATTERN,
-    options.excludePaths ?? []
-  );
-  const projectFiles = files.filter(
-    (filePath) => !filePath.includes(`${path.sep}node_modules${path.sep}`)
-  );
+  const projectFiles = fileEntries
+    .map((entry) => entry.path)
+    .filter((filePath) => !filePath.includes(`${path.sep}node_modules${path.sep}`));
 
   const runtimeUsed = new Set<string>();
   const devUsed = new Set<string>();
 
-  for (const filePath of projectFiles) {
-    const content = await readTextFile(filePath);
-    const imports = extractImportedPackages(content);
+  for (const entry of fileEntries) {
+    if (!SOURCE_FILE_PATTERN.test(entry.path)) {
+      continue;
+    }
+    const imports = extractImportedPackages(entry.content);
+    const filePath = entry.path;
     const isDevOnlyFile = isDevelopmentOnlyFile(rootDir, filePath);
     const target = isDevOnlyFile ? devUsed : runtimeUsed;
 
@@ -46,9 +45,7 @@ export async function findUnusedDependencies(
   }
 
   const hasTypeScriptSources = projectFiles.some((filePath) => /\.(c|m)?tsx?$/.test(filePath));
-  const hasTypeScriptConfig = await hasFile(rootDir, "tsconfig.json");
-
-  if (hasTypeScriptConfig) {
+  if (options.hasTypeScriptConfig) {
     devUsed.add("typescript");
   }
 
@@ -58,12 +55,43 @@ export async function findUnusedDependencies(
 
   const unusedDevDependencies = Object.keys(graph.devDependencies)
     .filter((name) => !devUsed.has(name) && !runtimeUsed.has(name))
-    .filter((name) => !isImplicitlyUsedDevDependency(name, hasTypeScriptSources, hasTypeScriptConfig))
+    .filter((name) =>
+      !isImplicitlyUsedDevDependency(
+        name,
+        hasTypeScriptSources,
+        options.hasTypeScriptConfig
+      )
+    )
     .map((name) => ({ name, section: "devDependencies" as const }));
 
   return [...unusedDependencies, ...unusedDevDependencies].sort((left, right) =>
     left.name.localeCompare(right.name)
   );
+}
+
+export async function runUnusedCheck(
+  context: AnalysisContext
+): Promise<CheckResult> {
+  const unused = await findUnusedDependencies(
+    context.rootDir,
+    context.graph,
+    context.fileEntries,
+    { hasTypeScriptConfig: context.hasTypeScriptConfig }
+  );
+
+  return {
+    name: "unused",
+    summary: `${unused.length} unused dependencies found`,
+    issues: unused.map((item) => ({
+      id: `unused:${item.section}:${item.name}`,
+      message: `${item.name} appears unused`,
+      severity: "warning",
+      meta: {
+        name: item.name,
+        section: item.section
+      }
+    }))
+  };
 }
 
 function extractImportedPackages(content: string): Set<string> {
@@ -160,13 +188,4 @@ function isImplicitlyUsedDevDependency(
   }
 
   return false;
-}
-
-async function hasFile(rootDir: string, fileName: string): Promise<boolean> {
-  try {
-    await readTextFile(path.join(rootDir, fileName));
-    return true;
-  } catch {
-    return false;
-  }
 }

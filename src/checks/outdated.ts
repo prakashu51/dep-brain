@@ -1,5 +1,6 @@
 import type { OutdatedDependency } from "../core/analyzer.js";
 import type { DependencyGraph } from "../core/graph-builder.js";
+import type { CheckResult } from "../core/types.js";
 import { getLatestVersion } from "../utils/npm-api.js";
 
 export interface OutdatedOptions {
@@ -37,6 +38,28 @@ export async function findOutdatedDependencies(
   return results
     .filter((item): item is OutdatedDependency => item !== null)
     .sort((left, right) => left.name.localeCompare(right.name));
+}
+
+export async function runOutdatedCheck(
+  graph: DependencyGraph
+): Promise<CheckResult> {
+  const outdated = await findOutdatedDependencies(graph);
+
+  return {
+    name: "outdated",
+    summary: `${outdated.length} outdated dependencies found`,
+    issues: outdated.map((item) => ({
+      id: `outdated:${item.name}`,
+      message: `${item.name} ${item.current} -> ${item.latest}`,
+      severity: item.updateType === "major" ? "critical" : "warning",
+      meta: {
+        name: item.name,
+        current: item.current,
+        latest: item.latest,
+        updateType: item.updateType
+      }
+    }))
+  };
 }
 
 function normalizeVersion(versionRange: string): string {

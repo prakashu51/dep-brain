@@ -528,3 +528,58 @@ Use this format for future entries:
 
 - `npm run typecheck`
 - `npm run test`
+
+## 2026-04-10 - v0.4 report from JSON iteration
+
+### What changed
+
+- Added `dep-brain report --from <file>` to generate markdown or JSON from saved analysis.
+- Added `--out` support to write output to a file.
+- Updated README with new usage.
+
+### Why it changed
+
+- Ensures markdown and JSON outputs stay consistent across runs.
+
+### Files touched
+
+- `src/cli.ts`
+- `README.md`
+- `docs/implementation-log.md`
+
+### Verification completed
+
+- `npm run typecheck`
+- `npm run test`
+
+## 2026-04-11 - v0.5 refactor foundation iteration
+
+### What changed
+
+- Added `Issue` and `CheckResult` types for standardized check output.
+- Added `AnalysisContext` and centralized file reading in `buildAnalysisContext`.
+- Updated checks to return `CheckResult` with severity and metadata.
+- Introduced a dynamic check runner pipeline inside the analyzer.
+- Kept CLI output stable while refactoring internals.
+
+### Why it changed
+
+- This sets the internal foundation for v1 without breaking CLI behavior.
+
+### Files touched
+
+- `src/core/types.ts`
+- `src/core/context.ts`
+- `src/checks/duplicate.ts`
+- `src/checks/unused.ts`
+- `src/checks/outdated.ts`
+- `src/checks/risk.ts`
+- `src/core/analyzer.ts`
+- `src/index.ts`
+- `tests/run.js`
+- `docs/implementation-log.md`
+
+### Verification completed
+
+- `npm run typecheck`
+- `npm run test`

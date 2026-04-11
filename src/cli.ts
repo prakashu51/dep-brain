@@ -51,6 +51,31 @@ async function main(): Promise<void> {
   }
 
   if (command !== "analyze") {
+    if (command === "report") {
+      const fromPath = optionValues.get("--from") ?? positionals[0];
+      if (!fromPath) {
+        console.error("Missing --from <file> for report");
+        printHelp();
+        process.exitCode = 1;
+        return;
+      }
+
+      try {
+        const raw = await fs.readFile(fromPath, "utf8");
+        const reportData = JSON.parse(raw);
+        const output = flags.has("--json")
+          ? JSON.stringify(reportData, null, 2)
+          : renderMarkdownReport(reportData);
+        await writeOutput(output, optionValues.get("--out"));
+        return;
+      } catch (error) {
+        console.error("Failed to render report.");
+        console.error(error);
+        process.exitCode = 1;
+        return;
+      }
+    }
+
     if (command === "config") {
       if (!(await hasPackageJson(targetPath))) {
         console.error(`No package.json found at ${targetPath}`);
@@ -95,18 +120,20 @@ async function main(): Promise<void> {
       config: cliConfig
     });
 
+    let output: string;
     if (flags.has("--json")) {
-      process.stdout.write(`${renderJsonReport(result)}\n`);
+      output = renderJsonReport(result);
     } else if (flags.has("--md")) {
-      process.stdout.write(`${renderMarkdownReport(result)}\n`);
+      output = renderMarkdownReport(result);
     } else {
-      const output = renderConsoleReport(result);
-      if (!output || output.trim().length === 0) {
-        process.stdout.write(`${renderJsonReport(result)}\n`);
-      } else {
-        process.stdout.write(`${output}\n`);
-      }
+      const consoleOutput = renderConsoleReport(result);
+      output =
+        !consoleOutput || consoleOutput.trim().length === 0
+          ? renderJsonReport(result)
+          : consoleOutput;
     }
+
+    await writeOutput(output, optionValues.get("--out"));
 
     if (!result.policy.passed) {
       process.exitCode = 1;
@@ -174,8 +201,9 @@ function printHelp(): void {
   console.log("");
   console.log("Usage:");
   console.log(
-    "  dep-brain analyze [path] [--json] [--md] [--config path] [--min-score n] [--fail-on-risks] [--fail-on-outdated] [--fail-on-unused] [--fail-on-duplicates]"
+    "  dep-brain analyze [path] [--json] [--md] [--out path] [--config path] [--min-score n] [--fail-on-risks] [--fail-on-outdated] [--fail-on-unused] [--fail-on-duplicates]"
   );
+  console.log("  dep-brain report --from <file> [--md] [--json] [--out path]");
   console.log("  dep-brain config [path] [--config path]");
   console.log("  dep-brain help");
   console.log("  dep-brain --version");
@@ -184,6 +212,8 @@ function printHelp(): void {
   console.log("  --json              Output JSON for analysis");
   console.log("  --md                Output Markdown report");
   console.log("  --config <path>     Path to depbrain.config.json");
+  console.log("  --from <file>       Read analysis JSON from file");
+  console.log("  --out <path>        Write output to a file");
   console.log("  --min-score <n>     Minimum score required to pass");
   console.log("  --fail-on-risks     Fail when risky dependencies exist");
   console.log("  --fail-on-outdated  Fail when outdated dependencies exist");
@@ -202,4 +232,13 @@ async function loadPackageVersion(): Promise<string | null> {
   } catch {
     return null;
   }
+}
+
+async function writeOutput(output: string, outPath?: string): Promise<void> {
+  if (outPath) {
+    await fs.writeFile(outPath, `${output}\n`, "utf8");
+    return;
+  }
+
+  process.stdout.write(`${output}\n`);
 }

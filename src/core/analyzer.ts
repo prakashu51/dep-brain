@@ -1,8 +1,10 @@
 import path from "node:path";
-import { findDuplicateDependencies } from "../checks/duplicate.js";
-import { findOutdatedDependencies } from "../checks/outdated.js";
-import { findRiskDependencies } from "../checks/risk.js";
-import { findUnusedDependencies } from "../checks/unused.js";
+import {
+  runDuplicateCheck
+} from "../checks/duplicate.js";
+import { runOutdatedCheck } from "../checks/outdated.js";
+import { runRiskCheck } from "../checks/risk.js";
+import { runUnusedCheck } from "../checks/unused.js";
 import {
   loadDepBrainConfig,
   type DepBrainConfig,
@@ -11,6 +13,8 @@ import {
 import { findWorkspacePackages } from "../utils/workspaces.js";
 import { buildDependencyGraph } from "./graph-builder.js";
 import { calculateHealthScore } from "./scorer.js";
+import { buildAnalysisContext } from "./context.js";
+import type { CheckResult, Issue } from "./types.js";
 
 export interface AnalysisOptions {
   rootDir?: string;
@@ -111,10 +115,13 @@ export async function analyzeProject(
   }
 
   const rootGraph = await buildDependencyGraph(rootDir);
-  const rawDuplicates = await findDuplicateDependencies(rootGraph);
-  const duplicates = rawDuplicates.filter(
-    (item) => !shouldIgnorePackage(item.name, "duplicates", config)
+  const duplicateCheck = await runDuplicateCheck(rootGraph);
+  const filteredDuplicateIssues = filterIssues(
+    duplicateCheck.issues,
+    "duplicates",
+    config
   );
+  const duplicates = mapDuplicateIssues(filteredDuplicateIssues);
 
   const packages: PackageAnalysisResult[] = [];
   for (const workspace of workspaces) {
@@ -282,31 +289,14 @@ async function analyzeSingleProject(
   config: DepBrainConfig,
   options: { packageName?: string } = {}
 ): Promise<AnalysisResult> {
-  const graph = await buildDependencyGraph(rootDir);
+  const context = await buildAnalysisContext(rootDir, config);
+  const results = await runChecks(context);
+  const issueGroups = normalizeIssues(results, config);
 
-  const [rawDuplicates, rawUnused, rawOutdated, rawRisks] = await Promise.all([
-    findDuplicateDependencies(graph),
-    findUnusedDependencies(rootDir, graph, {
-      excludePaths: config.scan.excludePaths
-    }),
-    findOutdatedDependencies(graph),
-    findRiskDependencies(graph)
-  ]);
-
-  const duplicates = rawDuplicates.filter(
-    (item) => !shouldIgnorePackage(item.name, "duplicates", config)
-  );
-  const unused = rawUnused.filter(
-    (item) =>
-      !shouldIgnorePackage(item.name, "unused", config) &&
-      !shouldIgnorePackage(item.name, item.section, config)
-  );
-  const outdated = rawOutdated.filter(
-    (item) => !shouldIgnorePackage(item.name, "outdated", config)
-  );
-  const risks = rawRisks.filter(
-    (item) => !shouldIgnorePackage(item.name, "risks", config)
-  );
+  const duplicates = mapDuplicateIssues(issueGroups.duplicates);
+  const unused = mapUnusedIssues(issueGroups.unused);
+  const outdated = mapOutdatedIssues(issueGroups.outdated);
+  const risks = mapRiskIssues(issueGroups.risks);
 
   const score = calculateHealthScore({
     duplicates: duplicates.length,
@@ -400,6 +390,118 @@ function shouldIgnorePackage(
       return false;
     }
   });
+}
+
+async function runChecks(context: {
+  graph: import("./graph-builder.js").DependencyGraph;
+  rootDir: string;
+  sourceText: string;
+  projectFiles: string[];
+  fileEntries: { path: string; content: string }[];
+  hasTypeScriptConfig: boolean;
+}): Promise<CheckResult[]> {
+  const checks = [
+    {
+      name: "duplicate",
+      run: () => runDuplicateCheck(context.graph)
+    },
+    {
+      name: "unused",
+      run: () => runUnusedCheck(context)
+    },
+    {
+      name: "outdated",
+      run: () => runOutdatedCheck(context.graph)
+    },
+    {
+      name: "risk",
+      run: () => runRiskCheck(context.graph)
+    }
+  ];
+
+  const results: CheckResult[] = [];
+  for (const check of checks) {
+    results.push(await check.run());
+  }
+
+  return results;
+}
+
+function normalizeIssues(results: CheckResult[], config: DepBrainConfig): {
+  duplicates: Issue[];
+  unused: Issue[];
+  outdated: Issue[];
+  risks: Issue[];
+} {
+  const map = new Map<string, Issue[]>();
+  for (const result of results) {
+    map.set(result.name, result.issues);
+  }
+
+  return {
+    duplicates: filterIssues(map.get("duplicate") ?? [], "duplicates", config),
+    unused: filterIssues(map.get("unused") ?? [], "unused", config),
+    outdated: filterIssues(map.get("outdated") ?? [], "outdated", config),
+    risks: filterIssues(map.get("risk") ?? [], "risks", config)
+  };
+}
+
+function filterIssues(
+  issues: Issue[],
+  bucket: "dependencies" | "devDependencies" | "unused" | "duplicates" | "outdated" | "risks",
+  config: DepBrainConfig
+): Issue[] {
+  return issues.filter((issue) => {
+    const name = typeof issue.meta?.name === "string" ? issue.meta.name : issue.package ?? "";
+    if (!name) {
+      return true;
+    }
+    if (bucket === "unused") {
+      const section =
+        issue.meta?.section === "devDependencies" ? "devDependencies" : "dependencies";
+      if (shouldIgnorePackage(name, section, config)) {
+        return false;
+      }
+    }
+    return !shouldIgnorePackage(name, bucket, config);
+  });
+}
+
+function mapDuplicateIssues(issues: Issue[]): DuplicateDependency[] {
+  return issues.map((issue) => ({
+    name: String(issue.meta?.name ?? issue.package ?? "unknown"),
+    versions: Array.isArray(issue.meta?.versions) ? (issue.meta?.versions as string[]) : [],
+    instances: Array.isArray(issue.meta?.instances)
+      ? (issue.meta?.instances as { path: string; version: string }[])
+      : []
+  }));
+}
+
+function mapUnusedIssues(issues: Issue[]): UnusedDependency[] {
+  return issues.map((issue) => ({
+    name: String(issue.meta?.name ?? issue.package ?? "unknown"),
+    section:
+      issue.meta?.section === "devDependencies" ? "devDependencies" : "dependencies"
+  }));
+}
+
+function mapOutdatedIssues(issues: Issue[]): OutdatedDependency[] {
+  return issues.map((issue) => ({
+    name: String(issue.meta?.name ?? issue.package ?? "unknown"),
+    current: String(issue.meta?.current ?? ""),
+    latest: String(issue.meta?.latest ?? ""),
+    updateType:
+      issue.meta?.updateType === "major" || issue.meta?.updateType === "minor" || issue.meta?.updateType === "patch"
+        ? issue.meta.updateType
+        : "unknown"
+  }));
+}
+
+function mapRiskIssues(issues: Issue[]): RiskDependency[] {
+  return issues.map((issue) => ({
+    name: String(issue.meta?.name ?? issue.package ?? "unknown"),
+    reasons: Array.isArray(issue.meta?.reasons) ? (issue.meta?.reasons as string[]) : []
+  }));
 }
 
 function buildScoreBreakdown(
