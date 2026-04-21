@@ -27,6 +27,14 @@ export interface DuplicateInstance {
   version: string;
 }
 
+export interface Recommendation {
+  action: "remove" | "consolidate" | "upgrade" | "review";
+  priority: "high" | "medium" | "low";
+  safety: "safe" | "caution" | "unknown";
+  summary: string;
+  reasons: string[];
+}
+
 export interface DuplicateDependency {
   name: string;
   versions: string[];
@@ -34,6 +42,7 @@ export interface DuplicateDependency {
   confidence: number;
   reasonCodes: string[];
   explanation: string[];
+  recommendation: Recommendation;
 }
 
 export interface UnusedDependency {
@@ -43,6 +52,7 @@ export interface UnusedDependency {
   confidence: number;
   reasonCodes: string[];
   explanation: string[];
+  recommendation: Recommendation;
 }
 
 export interface OutdatedDependency {
@@ -54,6 +64,7 @@ export interface OutdatedDependency {
   confidence: number;
   reasonCodes: string[];
   explanation: string[];
+  recommendation: Recommendation;
 }
 
 export interface RiskDependency {
@@ -63,6 +74,17 @@ export interface RiskDependency {
   confidence: number;
   reasonCodes: string[];
   explanation: string[];
+  recommendation: Recommendation;
+}
+
+export interface TopIssue {
+  kind: "unused" | "duplicate" | "outdated" | "risk";
+  name: string;
+  package?: string;
+  priority: "high" | "medium" | "low";
+  confidence: number;
+  summary: string;
+  recommendation: Recommendation;
 }
 
 export interface AnalysisResult {
@@ -76,6 +98,7 @@ export interface AnalysisResult {
   outdated: OutdatedDependency[];
   risks: RiskDependency[];
   suggestions: string[];
+  topIssues: TopIssue[];
   config: DepBrainConfig;
   packages?: PackageAnalysisResult[];
 }
@@ -96,9 +119,10 @@ export interface PackageAnalysisResult {
   outdated: OutdatedDependency[];
   risks: RiskDependency[];
   suggestions: string[];
+  topIssues: TopIssue[];
 }
 
-export const OUTPUT_VERSION = "1.1";
+export const OUTPUT_VERSION = "1.2";
 
 export interface ScoreBreakdown {
   baseScore: number;
@@ -202,6 +226,7 @@ export async function analyzeProject(
     outdated,
     risks,
     suggestions,
+    topIssues: buildTopIssues({ duplicates, unused, outdated, risks }),
     config,
     packages
   };
@@ -377,6 +402,12 @@ async function analyzeSingleProject(
     outdated: scopedOutdated,
     risks: scopedRisks,
     suggestions,
+    topIssues: buildTopIssues({
+      duplicates,
+      unused: scopedUnused,
+      outdated: scopedOutdated,
+      risks: scopedRisks
+    }),
     config
   };
 }
@@ -488,7 +519,8 @@ function mapDuplicateIssues(issues: Issue[]): DuplicateDependency[] {
       : [],
     confidence: normalizeConfidence(issue.confidence),
     reasonCodes: normalizeStringArray(issue.reasonCodes),
-    explanation: normalizeStringArray(issue.explanation)
+    explanation: normalizeStringArray(issue.explanation),
+    recommendation: buildDuplicateRecommendation(issue)
   }));
 }
 
@@ -499,7 +531,8 @@ function mapUnusedIssues(issues: Issue[]): UnusedDependency[] {
       issue.meta?.section === "devDependencies" ? "devDependencies" : "dependencies",
     confidence: normalizeConfidence(issue.confidence),
     reasonCodes: normalizeStringArray(issue.reasonCodes),
-    explanation: normalizeStringArray(issue.explanation)
+    explanation: normalizeStringArray(issue.explanation),
+    recommendation: buildUnusedRecommendation(issue)
   }));
 }
 
@@ -514,7 +547,8 @@ function mapOutdatedIssues(issues: Issue[]): OutdatedDependency[] {
         : "unknown",
     confidence: normalizeConfidence(issue.confidence),
     reasonCodes: normalizeStringArray(issue.reasonCodes),
-    explanation: normalizeStringArray(issue.explanation)
+    explanation: normalizeStringArray(issue.explanation),
+    recommendation: buildOutdatedRecommendation(issue)
   }));
 }
 
@@ -524,8 +558,146 @@ function mapRiskIssues(issues: Issue[]): RiskDependency[] {
     reasons: Array.isArray(issue.meta?.reasons) ? (issue.meta?.reasons as string[]) : [],
     confidence: normalizeConfidence(issue.confidence),
     reasonCodes: normalizeStringArray(issue.reasonCodes),
-    explanation: normalizeStringArray(issue.explanation)
+    explanation: normalizeStringArray(issue.explanation),
+    recommendation: buildRiskRecommendation(issue)
   }));
+}
+
+function buildUnusedRecommendation(issue: Issue): Recommendation {
+  const confidence = normalizeConfidence(issue.confidence);
+  const section =
+    issue.meta?.section === "devDependencies" ? "devDependencies" : "dependencies";
+  const safety =
+    section === "devDependencies" || confidence >= 0.88
+      ? "safe"
+      : confidence >= 0.7
+        ? "caution"
+        : "unknown";
+
+  return {
+    action: "remove",
+    priority: confidence >= 0.88 ? "high" : "medium",
+    safety,
+    summary:
+      safety === "safe"
+        ? `Safe to remove from ${section}.`
+        : safety === "caution"
+          ? `Likely removable from ${section}, but review before deleting.`
+          : `Potentially removable from ${section}, but evidence is limited.`,
+    reasons: normalizeStringArray(issue.explanation)
+  };
+}
+
+function buildDuplicateRecommendation(issue: Issue): Recommendation {
+  const versions = Array.isArray(issue.meta?.versions) ? (issue.meta.versions as string[]) : [];
+  const targetVersion = versions[versions.length - 1];
+  const instances = Array.isArray(issue.meta?.instances) ? issue.meta.instances.length : 0;
+
+  return {
+    action: "consolidate",
+    priority: versions.length >= 3 ? "high" : "medium",
+    safety: "caution",
+    summary: targetVersion
+      ? `Consolidate toward ${targetVersion}; ${instances} installation paths are affected.`
+      : "Consolidate duplicate versions to a single target version.",
+    reasons: normalizeStringArray(issue.explanation)
+  };
+}
+
+function buildOutdatedRecommendation(issue: Issue): Recommendation {
+  const updateType =
+    issue.meta?.updateType === "major" ||
+    issue.meta?.updateType === "minor" ||
+    issue.meta?.updateType === "patch"
+      ? issue.meta.updateType
+      : "unknown";
+
+  const priority =
+    updateType === "major" ? "high" : updateType === "minor" ? "medium" : "low";
+  const safety =
+    updateType === "patch" ? "safe" : updateType === "minor" ? "caution" : "unknown";
+
+  return {
+    action: "upgrade",
+    priority,
+    safety,
+    summary:
+      updateType === "major"
+        ? "New major version available; review breaking changes before upgrading."
+        : updateType === "minor"
+          ? "New minor version available; review release notes before upgrading."
+          : updateType === "patch"
+            ? "Routine patch update available."
+            : "Newer version available; review upgrade impact.",
+    reasons: normalizeStringArray(issue.explanation)
+  };
+}
+
+function buildRiskRecommendation(issue: Issue): Recommendation {
+  const reasons = normalizeStringArray(issue.explanation);
+  const confidence = normalizeConfidence(issue.confidence);
+
+  return {
+    action: "review",
+    priority: confidence >= 0.79 ? "high" : "medium",
+    safety: "caution",
+    summary: "Review package trust signals and decide whether to keep, replace, or monitor it.",
+    reasons
+  };
+}
+
+function buildTopIssues(input: {
+  duplicates: DuplicateDependency[];
+  unused: UnusedDependency[];
+  outdated: OutdatedDependency[];
+  risks: RiskDependency[];
+}): TopIssue[] {
+  const issues: TopIssue[] = [
+    ...input.unused.map((item) => ({
+      kind: "unused" as const,
+      name: item.name,
+      package: item.package,
+      priority: item.recommendation.priority,
+      confidence: item.confidence,
+      summary: item.recommendation.summary,
+      recommendation: item.recommendation
+    })),
+    ...input.duplicates.map((item) => ({
+      kind: "duplicate" as const,
+      name: item.name,
+      priority: item.recommendation.priority,
+      confidence: item.confidence,
+      summary: item.recommendation.summary,
+      recommendation: item.recommendation
+    })),
+    ...input.outdated.map((item) => ({
+      kind: "outdated" as const,
+      name: item.name,
+      package: item.package,
+      priority: item.recommendation.priority,
+      confidence: item.confidence,
+      summary: item.recommendation.summary,
+      recommendation: item.recommendation
+    })),
+    ...input.risks.map((item) => ({
+      kind: "risk" as const,
+      name: item.name,
+      package: item.package,
+      priority: item.recommendation.priority,
+      confidence: item.confidence,
+      summary: item.recommendation.summary,
+      recommendation: item.recommendation
+    }))
+  ];
+
+  return issues
+    .sort((left, right) => comparePriority(right.priority, left.priority) || right.confidence - left.confidence)
+    .slice(0, 5);
+}
+
+function comparePriority(left: TopIssue["priority"], right: TopIssue["priority"]): number {
+  const rank = { high: 3, medium: 2, low: 1 };
+  return rank[left] - rank[right];
 }
 
 function normalizeConfidence(value: number | undefined): number {

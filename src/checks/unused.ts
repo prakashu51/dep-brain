@@ -1,5 +1,5 @@
 import path from "node:path";
-import type { UnusedDependency } from "../core/analyzer.js";
+import type { Recommendation, UnusedDependency } from "../core/analyzer.js";
 import type { DependencyGraph } from "../core/graph-builder.js";
 import type { AnalysisContext, CheckResult } from "../core/types.js";
 
@@ -210,6 +210,27 @@ function buildUnusedDependency(
       "No import or require usage was found in scanned source files.",
       "No matching reference was found in recognized config files.",
       "No matching binary or package reference was found in package scripts."
+    ],
+    recommendation: buildUnusedRecommendation(section)
+  };
+}
+
+function buildUnusedRecommendation(
+  section: "dependencies" | "devDependencies"
+): Recommendation {
+  const safety = section === "devDependencies" ? "safe" : "caution";
+
+  return {
+    action: "remove",
+    priority: section === "dependencies" ? "high" : "medium",
+    safety,
+    summary:
+      safety === "safe"
+        ? `Safe to remove from ${section}.`
+        : `Likely removable from ${section}, but review before deleting.`,
+    reasons: [
+      "No code usage was found in scanned files.",
+      "No config or script reference was detected."
     ]
   };
 }

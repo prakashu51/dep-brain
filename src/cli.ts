@@ -64,9 +64,11 @@ async function main(): Promise<void> {
         const resolvedFrom = resolveUserPath(fromPath);
         const raw = await fs.readFile(resolvedFrom, "utf8");
         const reportData = JSON.parse(raw);
-        const output = flags.has("--json")
-          ? JSON.stringify(reportData, null, 2)
-          : renderMarkdownReport(reportData);
+        const output = flags.has("--top")
+          ? renderTopIssuesReport(reportData)
+          : flags.has("--json")
+            ? JSON.stringify(reportData, null, 2)
+            : renderMarkdownReport(reportData);
         await writeOutput(output, optionValues.get("--out"));
         return;
       } catch (error) {
@@ -126,6 +128,8 @@ async function main(): Promise<void> {
     let output: string;
     if (flags.has("--json")) {
       output = renderJsonReport(result);
+    } else if (flags.has("--top")) {
+      output = renderTopIssuesReport(result);
     } else if (flags.has("--md")) {
       output = renderMarkdownReport(result);
     } else {
@@ -204,9 +208,9 @@ function printHelp(): void {
   console.log("");
   console.log("Usage:");
   console.log(
-    "  dep-brain analyze [path] [--json] [--md] [--out path] [--config path] [--min-score n] [--fail-on-risks] [--fail-on-outdated] [--fail-on-unused] [--fail-on-duplicates]"
+    "  dep-brain analyze [path] [--json] [--md] [--top] [--out path] [--config path] [--min-score n] [--fail-on-risks] [--fail-on-outdated] [--fail-on-unused] [--fail-on-duplicates]"
   );
-  console.log("  dep-brain report --from <file> [--md] [--json] [--out path]");
+  console.log("  dep-brain report --from <file> [--md] [--json] [--top] [--out path]");
   console.log("  dep-brain config [path] [--config path]");
   console.log("  dep-brain help");
   console.log("  dep-brain --version");
@@ -214,6 +218,7 @@ function printHelp(): void {
   console.log("Options:");
   console.log("  --json              Output JSON for analysis");
   console.log("  --md                Output Markdown report");
+  console.log("  --top               Output the ranked top issues only");
   console.log("  --config <path>     Path to depbrain.config.json");
   console.log("  --from <file>       Read analysis JSON from file");
   console.log("  --out <path>        Write output to a file");
@@ -253,4 +258,25 @@ function sanitizeForLog(value: string): string {
 
 function resolveUserPath(value: string): string {
   return path.resolve(process.cwd(), value);
+}
+
+function renderTopIssuesReport(result: Awaited<ReturnType<typeof analyzeProject>>): string {
+  const lines: string[] = [];
+  lines.push("Top Issues");
+  lines.push("");
+
+  if (!Array.isArray(result.topIssues) || result.topIssues.length === 0) {
+    lines.push("No actionable issues found.");
+    return lines.join("\n");
+  }
+
+  for (const [index, item] of result.topIssues.entries()) {
+    lines.push(
+      `${index + 1}. [${item.priority.toUpperCase()}] ${item.kind} ${item.name}${item.package ? ` [${item.package}]` : ""}`
+    );
+    lines.push(`   Confidence: ${Math.round(item.confidence * 100)}%`);
+    lines.push(`   Next: ${item.recommendation.summary}`);
+  }
+
+  return lines.join("\n");
 }

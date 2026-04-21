@@ -3,6 +3,16 @@ import type { AnalysisResult } from "../core/analyzer.js";
 export function renderConsoleReport(result: AnalysisResult): string {
   const lines: string[] = [];
 
+  if (result.topIssues.length > 0) {
+    lines.push("Top Issues:");
+    for (const item of result.topIssues) {
+      lines.push(
+        `- [${item.priority.toUpperCase()}] ${item.kind} ${item.name}${item.package ? ` [${item.package}]` : ""} | confidence ${Math.round(item.confidence * 100)}% | ${item.summary}`
+      );
+    }
+    lines.push("");
+  }
+
   lines.push(`Project Health: ${result.score}/100`);
   lines.push(`Path: ${result.rootDir}`);
   lines.push(`Policy: ${result.policy.passed ? "PASS" : "FAIL"}`);
@@ -32,7 +42,8 @@ export function renderConsoleReport(result: AnalysisResult): string {
       formatEntry(
         `${item.name}: ${item.versions.join(", ")}`,
         item.confidence,
-        item.explanation
+        item.explanation,
+        item.recommendation
       )
     )
   );
@@ -46,7 +57,8 @@ export function renderConsoleReport(result: AnalysisResult): string {
           ? `${item.name} (${item.section}) [${item.package}]`
           : `${item.name} (${item.section})`,
         item.confidence,
-        item.explanation
+        item.explanation,
+        item.recommendation
       )
     )
   );
@@ -61,7 +73,8 @@ export function renderConsoleReport(result: AnalysisResult): string {
             ? `${item.name}: ${item.current} -> ${item.latest} [${item.updateType}] [${item.package}]`
             : `${item.name}: ${item.current} -> ${item.latest} [${item.updateType}]`,
           item.confidence,
-          item.explanation
+          item.explanation,
+          item.recommendation
         )
     )
   );
@@ -75,7 +88,8 @@ export function renderConsoleReport(result: AnalysisResult): string {
           ? `${item.name}: ${item.reasons.join("; ")} [${item.package}]`
           : `${item.name}: ${item.reasons.join("; ")}`,
         item.confidence,
-        item.explanation
+        item.explanation,
+        item.recommendation
       )
     )
   );
@@ -117,10 +131,14 @@ function appendSection(
 function formatEntry(
   label: string,
   confidence: number,
-  explanation: string[]
+  explanation: string[],
+  recommendation?: AnalysisResult["unused"][number]["recommendation"]
 ): string {
   const reasonSummary =
     explanation.length > 0 ? ` | why: ${explanation.join("; ")}` : "";
+  const recommendationSummary = recommendation
+    ? ` | next: ${recommendation.summary}`
+    : "";
 
-  return `${label} | confidence ${Math.round(confidence * 100)}%${reasonSummary}`;
+  return `${label} | confidence ${Math.round(confidence * 100)}%${recommendationSummary}${reasonSummary}`;
 }

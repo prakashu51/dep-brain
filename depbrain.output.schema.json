@@ -2,9 +2,21 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Dependency Brain Analysis Output",
   "type": "object",
-  "required": ["outputVersion", "rootDir", "score", "scoreBreakdown", "policy", "duplicates", "unused", "outdated", "risks", "suggestions", "config"],
+  "required": ["outputVersion", "rootDir", "score", "scoreBreakdown", "policy", "duplicates", "unused", "outdated", "risks", "suggestions", "topIssues", "config"],
   "additionalProperties": false,
   "properties": {
+    "recommendation": {
+      "type": "object",
+      "required": ["action", "priority", "safety", "summary", "reasons"],
+      "additionalProperties": false,
+      "properties": {
+        "action": { "type": "string", "enum": ["remove", "consolidate", "upgrade", "review"] },
+        "priority": { "type": "string", "enum": ["high", "medium", "low"] },
+        "safety": { "type": "string", "enum": ["safe", "caution", "unknown"] },
+        "summary": { "type": "string" },
+        "reasons": { "type": "array", "items": { "type": "string" } }
+      }
+    },
     "outputVersion": { "type": "string" },
     "rootDir": { "type": "string" },
     "score": { "type": "number" },
@@ -44,7 +56,7 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["name", "versions", "instances", "confidence", "reasonCodes", "explanation"],
+        "required": ["name", "versions", "instances", "confidence", "reasonCodes", "explanation", "recommendation"],
         "additionalProperties": false,
         "properties": {
           "name": { "type": "string" },
@@ -52,6 +64,7 @@
           "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
           "reasonCodes": { "type": "array", "items": { "type": "string" } },
           "explanation": { "type": "array", "items": { "type": "string" } },
+          "recommendation": { "$ref": "#/properties/recommendation" },
           "instances": {
             "type": "array",
             "items": {
@@ -71,7 +84,7 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["name", "section", "confidence", "reasonCodes", "explanation"],
+        "required": ["name", "section", "confidence", "reasonCodes", "explanation", "recommendation"],
         "additionalProperties": false,
         "properties": {
           "name": { "type": "string" },
@@ -79,7 +92,8 @@
           "package": { "type": "string" },
           "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
           "reasonCodes": { "type": "array", "items": { "type": "string" } },
-          "explanation": { "type": "array", "items": { "type": "string" } }
+          "explanation": { "type": "array", "items": { "type": "string" } },
+          "recommendation": { "$ref": "#/properties/recommendation" }
         }
       }
     },
@@ -87,7 +101,7 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["name", "current", "latest", "updateType", "confidence", "reasonCodes", "explanation"],
+        "required": ["name", "current", "latest", "updateType", "confidence", "reasonCodes", "explanation", "recommendation"],
         "additionalProperties": false,
         "properties": {
           "name": { "type": "string" },
@@ -97,7 +111,8 @@
           "package": { "type": "string" },
           "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
           "reasonCodes": { "type": "array", "items": { "type": "string" } },
-          "explanation": { "type": "array", "items": { "type": "string" } }
+          "explanation": { "type": "array", "items": { "type": "string" } },
+          "recommendation": { "$ref": "#/properties/recommendation" }
         }
       }
     },
@@ -105,7 +120,7 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["name", "reasons", "confidence", "reasonCodes", "explanation"],
+        "required": ["name", "reasons", "confidence", "reasonCodes", "explanation", "recommendation"],
         "additionalProperties": false,
         "properties": {
           "name": { "type": "string" },
@@ -113,11 +128,29 @@
           "package": { "type": "string" },
           "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
           "reasonCodes": { "type": "array", "items": { "type": "string" } },
-          "explanation": { "type": "array", "items": { "type": "string" } }
+          "explanation": { "type": "array", "items": { "type": "string" } },
+          "recommendation": { "$ref": "#/properties/recommendation" }
         }
       }
     },
     "suggestions": { "type": "array", "items": { "type": "string" } },
+    "topIssues": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["kind", "name", "priority", "confidence", "summary", "recommendation"],
+        "additionalProperties": false,
+        "properties": {
+          "kind": { "type": "string", "enum": ["unused", "duplicate", "outdated", "risk"] },
+          "name": { "type": "string" },
+          "package": { "type": "string" },
+          "priority": { "type": "string", "enum": ["high", "medium", "low"] },
+          "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+          "summary": { "type": "string" },
+          "recommendation": { "$ref": "#/properties/recommendation" }
+        }
+      }
+    },
     "config": { "type": "object" },
     "packages": { "type": "array" }
   }

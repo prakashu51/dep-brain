@@ -1,5 +1,5 @@
 import type { DependencyGraph } from "../core/graph-builder.js";
-import type { RiskDependency } from "../core/analyzer.js";
+import type { Recommendation, RiskDependency } from "../core/analyzer.js";
 import type { CheckResult } from "../core/types.js";
 import { getPackageMetadata } from "../utils/npm-api.js";
 
@@ -43,7 +43,8 @@ export async function findRiskDependencies(
         reasons,
         confidence: calculateRiskConfidence(reasons),
         reasonCodes: reasons.map(toRiskReasonCode),
-        explanation: reasons
+        explanation: reasons,
+        recommendation: buildRiskRecommendation(reasons, calculateRiskConfidence(reasons))
       };
     })
   );
@@ -51,6 +52,19 @@ export async function findRiskDependencies(
   return results
     .filter((item): item is RiskDependency => item !== null)
     .sort((left, right) => left.name.localeCompare(right.name));
+}
+
+function buildRiskRecommendation(
+  reasons: string[],
+  confidence: number
+): Recommendation {
+  return {
+    action: "review",
+    priority: confidence >= 0.79 ? "high" : "medium",
+    safety: "caution",
+    summary: "Review package trust signals and decide whether to keep, replace, or monitor it.",
+    reasons
+  };
 }
 
 export async function runRiskCheck(
