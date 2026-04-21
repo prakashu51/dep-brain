@@ -6,8 +6,10 @@ export type {
   OutdatedDependency,
   PolicyResult,
   PackageAnalysisResult,
+  Recommendation,
   ScoreBreakdown,
   RiskDependency,
+  TopIssue,
   UnusedDependency
 } from "./core/analyzer.js";
 export { OUTPUT_VERSION } from "./core/analyzer.js";

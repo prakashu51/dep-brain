@@ -1,4 +1,4 @@
-import type { OutdatedDependency } from "../core/analyzer.js";
+import type { OutdatedDependency, Recommendation } from "../core/analyzer.js";
 import type { DependencyGraph } from "../core/graph-builder.js";
 import type { CheckResult } from "../core/types.js";
 import { getLatestVersion } from "../utils/npm-api.js";
@@ -26,20 +26,23 @@ export async function findOutdatedDependencies(
         return null;
       }
 
+      const updateType = classifyUpdateType(normalized, latest);
+
       return {
         name,
         current,
         latest,
-        updateType: classifyUpdateType(normalized, latest),
+        updateType,
         confidence: 0.97,
         reasonCodes: [
           "latest_registry_version_newer",
-          `update_type_${classifyUpdateType(normalized, latest)}`
+          `update_type_${updateType}`
         ],
         explanation: [
           "The npm registry reports a newer published version than the one declared in this project.",
-          `The change is classified as a ${classifyUpdateType(normalized, latest)} update.`
-        ]
+          `The change is classified as a ${updateType} update.`
+        ],
+        recommendation: buildOutdatedRecommendation(updateType)
       };
     })
   );
@@ -47,6 +50,29 @@ export async function findOutdatedDependencies(
   return results
     .filter((item): item is OutdatedDependency => item !== null)
     .sort((left, right) => left.name.localeCompare(right.name));
+}
+
+function buildOutdatedRecommendation(
+  updateType: "major" | "minor" | "patch" | "unknown"
+): Recommendation {
+  return {
+    action: "upgrade",
+    priority:
+      updateType === "major" ? "high" : updateType === "minor" ? "medium" : "low",
+    safety:
+      updateType === "patch" ? "safe" : updateType === "minor" ? "caution" : "unknown",
+    summary:
+      updateType === "major"
+        ? "New major version available; review breaking changes before upgrading."
+        : updateType === "minor"
+          ? "New minor version available; review release notes before upgrading."
+          : updateType === "patch"
+            ? "Routine patch update available."
+            : "Newer version available; review upgrade impact.",
+    reasons: [
+      "A newer published version is available in the registry."
+    ]
+  };
 }
 
 export async function runOutdatedCheck(

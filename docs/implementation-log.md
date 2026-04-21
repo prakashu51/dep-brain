@@ -169,6 +169,43 @@ Use this format for future entries:
 
 - `cmd /c npm run typecheck`
 - `cmd /c npm run test`
+
+## 2026-04-21 - v0.7 actionable intelligence iteration
+
+### What changed
+
+- Added per-finding recommendations for unused, duplicate, outdated, and risk results.
+- Added ranked `topIssues` output to the analysis result.
+- Added CLI and report support for `--top` to surface the highest-priority next actions.
+- Updated the JSON schema and exports for the new recommendation contract.
+- Added tests covering actionable recommendations and top-issue ranking.
+
+### Why it changed
+
+- `v0.7` is focused on moving from detection to action.
+- This iteration helps users understand what to fix first and what the safest next step is.
+
+### Files touched
+
+- `src/core/analyzer.ts`
+- `src/checks/duplicate.ts`
+- `src/checks/unused.ts`
+- `src/checks/outdated.ts`
+- `src/checks/risk.ts`
+- `src/reporters/console.ts`
+- `src/reporters/markdown.ts`
+- `src/cli.ts`
+- `src/index.ts`
+- `depbrain.output.schema.json`
+- `tests/run.js`
+- `README.md`
+- `CHANGELOG.md`
+- `docs/implementation-log.md`
+
+### Verification completed
+
+- `cmd /c npm run typecheck`
+- `cmd /c npm run test`
 - `npm run build`
 - `node dist/cli.js analyze tests/fixtures/config-project`
 - `node dist/cli.js analyze tests/fixtures/unused-project --fail-on-unused`

@@ -221,13 +221,27 @@ const tests = [
       assert.ok(unusedItem.reasonCodes.length > 0);
       assert.ok(Array.isArray(unusedItem?.explanation));
       assert.ok(unusedItem.explanation.length > 0);
+      assert.ok(unusedItem.recommendation);
+      assert.equal(unusedItem.recommendation.action, "remove");
+      assert.ok(result.topIssues.length > 0);
+    }
+  },
+  {
+    name: "top issues are ranked and actionable",
+    run: async () => {
+      const fixtureRoot = path.join(__dirname, "fixtures", "unused-project");
+      const result = await analyzeProject({ rootDir: fixtureRoot });
+
+      assert.ok(result.topIssues.length > 0);
+      assert.ok(["high", "medium", "low"].includes(result.topIssues[0].priority));
+      assert.equal(typeof result.topIssues[0].recommendation.summary, "string");
     }
   },
   {
     name: "console report is non-empty",
     run: async () => {
       const report = renderConsoleReport({
-        outputVersion: "1.1",
+        outputVersion: "1.2",
         rootDir: "D:/fixture",
         score: 100,
         scoreBreakdown: {
@@ -249,6 +263,7 @@ const tests = [
         outdated: [],
         risks: [],
         suggestions: [],
+        topIssues: [],
         config: {
           ignore: {
             dependencies: [],
@@ -289,7 +304,7 @@ const tests = [
     name: "json report is non-empty",
     run: async () => {
       const report = renderJsonReport({
-        outputVersion: "1.1",
+        outputVersion: "1.2",
         rootDir: "D:/fixture",
         score: 100,
         scoreBreakdown: {
@@ -311,6 +326,7 @@ const tests = [
         outdated: [],
         risks: [],
         suggestions: [],
+        topIssues: [],
         config: {
           ignore: {
             dependencies: [],
@@ -351,7 +367,7 @@ const tests = [
     name: "markdown report is non-empty",
     run: async () => {
       const report = renderMarkdownReport({
-        outputVersion: "1.1",
+        outputVersion: "1.2",
         rootDir: "D:/fixture",
         score: 100,
         scoreBreakdown: {
@@ -373,6 +389,7 @@ const tests = [
         outdated: [],
         risks: [],
         suggestions: [],
+        topIssues: [],
         config: {
           ignore: {
             dependencies: [],
