@@ -9,7 +9,16 @@ export async function findDuplicateDependencies(
     .map(([name, instances]) => ({
       name,
       versions: Array.from(new Set(instances.map((instance) => instance.version))).sort(),
-      instances
+      instances,
+      confidence: 0.98,
+      reasonCodes: [
+        "multiple_lockfile_versions",
+        "multiple_installation_paths"
+      ],
+      explanation: [
+        `Multiple versions of ${name} were found in the lockfile.`,
+        "The package is installed from more than one dependency path."
+      ]
     }))
     .filter((dependency) => dependency.versions.length > 1)
     .sort((left, right) => left.name.localeCompare(right.name));
@@ -27,6 +36,9 @@ export async function runDuplicateCheck(
       id: `duplicate:${item.name}`,
       message: `${item.name} has ${item.versions.length} versions`,
       severity: "warning",
+      confidence: item.confidence,
+      reasonCodes: item.reasonCodes,
+      explanation: item.explanation,
       meta: {
         name: item.name,
         versions: item.versions,

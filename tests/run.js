@@ -87,10 +87,14 @@ const tests = [
         { hasTypeScriptConfig: context.hasTypeScriptConfig }
       );
 
-      assert.deepEqual(unused, [
-        { name: "unused-dev-tool", section: "devDependencies" },
-        { name: "unused-lib", section: "dependencies" }
-      ]);
+      assert.deepEqual(
+        unused.map((item) => ({ name: item.name, section: item.section })),
+        [
+          { name: "unused-dev-tool", section: "devDependencies" },
+          { name: "unused-lib", section: "dependencies" }
+        ]
+      );
+      assert.ok(unused.every((item) => item.reasonCodes.length > 0));
     }
   },
   {
@@ -150,6 +154,7 @@ const tests = [
       assert.equal(result.policy.passed, true);
       assert.deepEqual(result.policy.reasons, []);
       assert.ok(result.suggestions.length <= result.config.report.maxSuggestions);
+      assert.ok(result.outdated.every((item) => typeof item.confidence === "number"));
     }
   },
   {
@@ -165,6 +170,7 @@ const tests = [
 
       const unused = result.unused.map((item) => item.package);
       assert.ok(unused.includes("@workspace/b"));
+      assert.ok(result.unused.every((item) => Array.isArray(item.reasonCodes)));
     }
   },
   {
@@ -202,10 +208,26 @@ const tests = [
     }
   },
   {
+    name: "analysis output includes confidence and explanations",
+    run: async () => {
+      const fixtureRoot = path.join(__dirname, "fixtures", "unused-project");
+      const result = await analyzeProject({ rootDir: fixtureRoot });
+
+      assert.ok(result.unused.length > 0);
+      const unusedItem = result.unused[0];
+      assert.equal(typeof unusedItem?.confidence, "number");
+      assert.ok(unusedItem?.confidence >= 0 && unusedItem?.confidence <= 1);
+      assert.ok(Array.isArray(unusedItem?.reasonCodes));
+      assert.ok(unusedItem.reasonCodes.length > 0);
+      assert.ok(Array.isArray(unusedItem?.explanation));
+      assert.ok(unusedItem.explanation.length > 0);
+    }
+  },
+  {
     name: "console report is non-empty",
     run: async () => {
       const report = renderConsoleReport({
-        outputVersion: "1.0",
+        outputVersion: "1.1",
         rootDir: "D:/fixture",
         score: 100,
         scoreBreakdown: {
@@ -234,109 +256,9 @@ const tests = [
             duplicates: [],
             outdated: [],
             risks: [],
-            unused: []
-          },
-          policy: {
-            minScore: 0,
-            failOnDuplicates: false,
-            failOnOutdated: false,
-            failOnRisks: false,
-            failOnUnused: false
-          },
-          report: {
-            maxSuggestions: 5
-          }
-        }
-      });
-
-      assert.ok(report.trim().length > 0);
-    }
-  },
-  {
-    name: "json report is non-empty",
-    run: async () => {
-      const report = renderJsonReport({
-        outputVersion: "1.0",
-        rootDir: "D:/fixture",
-        score: 100,
-        scoreBreakdown: {
-          baseScore: 100,
-          duplicates: 0,
-          outdated: 0,
-          unused: 0,
-          risks: 0,
-          weights: {
-            duplicateWeight: 5,
-            outdatedWeight: 3,
-            unusedWeight: 4,
-            riskWeight: 10
-          }
-        },
-        policy: { passed: true, reasons: [] },
-        duplicates: [],
-        unused: [],
-        outdated: [],
-        risks: [],
-        suggestions: [],
-        config: {
-          ignore: {
-            dependencies: [],
-            devDependencies: [],
-            duplicates: [],
-            outdated: [],
-            risks: [],
-            unused: []
-          },
-          policy: {
-            minScore: 0,
-            failOnDuplicates: false,
-            failOnOutdated: false,
-            failOnRisks: false,
-            failOnUnused: false
-          },
-          report: {
-            maxSuggestions: 5
-          }
-        }
-      });
-
-      assert.ok(report.trim().length > 0);
-    }
-  },
-  {
-    name: "markdown report is non-empty",
-    run: async () => {
-      const report = renderMarkdownReport({
-        outputVersion: "1.0",
-        rootDir: "D:/fixture",
-        score: 100,
-        scoreBreakdown: {
-          baseScore: 100,
-          duplicates: 0,
-          outdated: 0,
-          unused: 0,
-          risks: 0,
-          weights: {
-            duplicateWeight: 5,
-            outdatedWeight: 3,
-            unusedWeight: 4,
-            riskWeight: 10
-          }
-        },
-        policy: { passed: true, reasons: [] },
-        duplicates: [],
-        unused: [],
-        outdated: [],
-        risks: [],
-        suggestions: [],
-        config: {
-          ignore: {
-            dependencies: [],
-            devDependencies: [],
-            duplicates: [],
-            outdated: [],
-            risks: [],
-            unused: []
+            unused: [],
+            prefixes: [],
+            patterns: []
           },
           policy: {
             minScore: 0,
@@ -353,6 +275,133 @@ const tests = [
             outdatedWeight: 3,
             unusedWeight: 4,
             riskWeight: 10
+          },
+          scan: {
+            excludePaths: []
+          }
+        }
+      });
+
+      assert.ok(report.trim().length > 0);
+    }
+  },
+  {
+    name: "json report is non-empty",
+    run: async () => {
+      const report = renderJsonReport({
+        outputVersion: "1.1",
+        rootDir: "D:/fixture",
+        score: 100,
+        scoreBreakdown: {
+          baseScore: 100,
+          duplicates: 0,
+          outdated: 0,
+          unused: 0,
+          risks: 0,
+          weights: {
+            duplicateWeight: 5,
+            outdatedWeight: 3,
+            unusedWeight: 4,
+            riskWeight: 10
+          }
+        },
+        policy: { passed: true, reasons: [] },
+        duplicates: [],
+        unused: [],
+        outdated: [],
+        risks: [],
+        suggestions: [],
+        config: {
+          ignore: {
+            dependencies: [],
+            devDependencies: [],
+            duplicates: [],
+            outdated: [],
+            risks: [],
+            unused: [],
+            prefixes: [],
+            patterns: []
+          },
+          policy: {
+            minScore: 0,
+            failOnDuplicates: false,
+            failOnOutdated: false,
+            failOnRisks: false,
+            failOnUnused: false
+          },
+          report: {
+            maxSuggestions: 5
+          },
+          scoring: {
+            duplicateWeight: 5,
+            outdatedWeight: 3,
+            unusedWeight: 4,
+            riskWeight: 10
+          },
+          scan: {
+            excludePaths: []
+          }
+        }
+      });
+
+      assert.ok(report.trim().length > 0);
+    }
+  },
+  {
+    name: "markdown report is non-empty",
+    run: async () => {
+      const report = renderMarkdownReport({
+        outputVersion: "1.1",
+        rootDir: "D:/fixture",
+        score: 100,
+        scoreBreakdown: {
+          baseScore: 100,
+          duplicates: 0,
+          outdated: 0,
+          unused: 0,
+          risks: 0,
+          weights: {
+            duplicateWeight: 5,
+            outdatedWeight: 3,
+            unusedWeight: 4,
+            riskWeight: 10
+          }
+        },
+        policy: { passed: true, reasons: [] },
+        duplicates: [],
+        unused: [],
+        outdated: [],
+        risks: [],
+        suggestions: [],
+        config: {
+          ignore: {
+            dependencies: [],
+            devDependencies: [],
+            duplicates: [],
+            outdated: [],
+            risks: [],
+            unused: [],
+            prefixes: [],
+            patterns: []
+          },
+          policy: {
+            minScore: 0,
+            failOnDuplicates: false,
+            failOnOutdated: false,
+            failOnRisks: false,
+            failOnUnused: false
+          },
+          report: {
+            maxSuggestions: 5
+          },
+          scoring: {
+            duplicateWeight: 5,
+            outdatedWeight: 3,
+            unusedWeight: 4,
+            riskWeight: 10
+          },
+          scan: {
+            excludePaths: []
           }
         }
       });

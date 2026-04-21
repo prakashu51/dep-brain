@@ -38,7 +38,13 @@ export async function findRiskDependencies(
         return null;
       }
 
-      return { name, reasons };
+      return {
+        name,
+        reasons,
+        confidence: calculateRiskConfidence(reasons),
+        reasonCodes: reasons.map(toRiskReasonCode),
+        explanation: reasons
+      };
     })
   );
 
@@ -59,10 +65,26 @@ export async function runRiskCheck(
       id: `risk:${item.name}`,
       message: `${item.name}: ${item.reasons.join("; ")}`,
       severity: "warning",
+      confidence: item.confidence,
+      reasonCodes: item.reasonCodes,
+      explanation: item.explanation,
       meta: {
         name: item.name,
         reasons: item.reasons
       }
     }))
   };
+}
+
+function calculateRiskConfidence(reasons: string[]): number {
+  return Math.min(0.99, 0.55 + reasons.length * 0.12);
+}
+
+function toRiskReasonCode(reason: string): string {
+  const normalized = reason
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+
+  return normalized || "risk_signal_detected";
 }

@@ -51,7 +51,7 @@ export async function findUnusedDependencies(
 
   const unusedDependencies = Object.keys(graph.dependencies)
     .filter((name) => !runtimeUsed.has(name))
-    .map((name) => ({ name, section: "dependencies" as const }));
+    .map((name) => buildUnusedDependency(name, "dependencies"));
 
   const unusedDevDependencies = Object.keys(graph.devDependencies)
     .filter((name) => !devUsed.has(name) && !runtimeUsed.has(name))
@@ -62,7 +62,7 @@ export async function findUnusedDependencies(
         options.hasTypeScriptConfig
       )
     )
-    .map((name) => ({ name, section: "devDependencies" as const }));
+    .map((name) => buildUnusedDependency(name, "devDependencies"));
 
   return [...unusedDependencies, ...unusedDevDependencies].sort((left, right) =>
     left.name.localeCompare(right.name)
@@ -86,6 +86,9 @@ export async function runUnusedCheck(
       id: `unused:${item.section}:${item.name}`,
       message: `${item.name} appears unused`,
       severity: "warning",
+      confidence: item.confidence,
+      reasonCodes: item.reasonCodes,
+      explanation: item.explanation,
       meta: {
         name: item.name,
         section: item.section
@@ -188,4 +191,25 @@ function isImplicitlyUsedDevDependency(
   }
 
   return false;
+}
+
+function buildUnusedDependency(
+  name: string,
+  section: "dependencies" | "devDependencies"
+): UnusedDependency {
+  return {
+    name,
+    section,
+    confidence: section === "dependencies" ? 0.9 : 0.82,
+    reasonCodes: [
+      "no_source_import_found",
+      "no_config_reference_found",
+      "no_script_reference_found"
+    ],
+    explanation: [
+      "No import or require usage was found in scanned source files.",
+      "No matching reference was found in recognized config files.",
+      "No matching binary or package reference was found in package scripts."
+    ]
+  };
 }

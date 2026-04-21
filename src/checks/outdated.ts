@@ -30,7 +30,16 @@ export async function findOutdatedDependencies(
         name,
         current,
         latest,
-        updateType: classifyUpdateType(normalized, latest)
+        updateType: classifyUpdateType(normalized, latest),
+        confidence: 0.97,
+        reasonCodes: [
+          "latest_registry_version_newer",
+          `update_type_${classifyUpdateType(normalized, latest)}`
+        ],
+        explanation: [
+          "The npm registry reports a newer published version than the one declared in this project.",
+          `The change is classified as a ${classifyUpdateType(normalized, latest)} update.`
+        ]
       };
     })
   );
@@ -52,6 +61,9 @@ export async function runOutdatedCheck(
       id: `outdated:${item.name}`,
       message: `${item.name} ${item.current} -> ${item.latest}`,
       severity: item.updateType === "major" ? "critical" : "warning",
+      confidence: item.confidence,
+      reasonCodes: item.reasonCodes,
+      explanation: item.explanation,
       meta: {
         name: item.name,
         current: item.current,

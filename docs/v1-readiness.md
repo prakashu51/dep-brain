@@ -8,6 +8,7 @@ This document tracks the requirements and milestones to reach `v1.0.0`.
 - Stable CLI and JSON output contract.
 - Reliable performance on medium and large repos.
 - Safe CI usage with predictable exit codes.
+- Explainable, confidence-oriented recommendations that developers trust.
 
 ## Must-Have (v1 Blockers)
 
@@ -16,12 +17,15 @@ This document tracks the requirements and milestones to reach `v1.0.0`.
 - Unused detection: reduce false positives in common frameworks (NestJS, Next.js).
 - Respect config files and dynamic imports.
 - Support monorepos/workspaces across npm/pnpm/yarn.
+- Add confidence scoring and machine-readable reason codes for findings.
+- Add "why" explanations for dependency classification.
 
 ### Output Stability
 
 - JSON schema for analysis output and config schema.
 - Versioned output format in docs.
 - Markdown report mode (for PR comments and CI artifacts).
+- Stable explanation and recommendation fields in the JSON contract.
 
 ### Performance
 
@@ -34,6 +38,8 @@ This document tracks the requirements and milestones to reach `v1.0.0`.
 - `dep-brain analyze` stable output.
 - `--json` and `--md` outputs documented.
 - Exit code policy works consistently.
+- Baseline mode for existing dependency debt.
+- CI gate mode for risk and score enforcement.
 
 ### Docs & Release
 
@@ -41,42 +47,38 @@ This document tracks the requirements and milestones to reach `v1.0.0`.
 - CHANGELOG entries for each release.
 - RELEASE checklist updated and followed.
 
-## v0.2.x -> v0.9.x Milestones
+## v0.6 -> v1.0 Milestones
 
-### v0.3
+### v0.6 - Trust and Explainability
 
-- Add markdown report (`--md`).
-- Add JSON output schema reference in docs.
+- Add per-finding confidence scores.
+- Add explanation engine and machine-readable reason codes.
+- Improve ignore and config handling to reduce noise.
 
-### v0.4
+### v0.7 - Actionable Intelligence
 
-- Add ignore by prefix (`@scope/*`) and optional regex.
-- Add global exclude paths (e.g., `dist`, `build`, `coverage`).
+- Add safe removal suggestions.
+- Add duplicate-resolution and upgrade suggestions.
+- Add a "top issues" summary mode.
 
-### v0.5
+### v0.8 - Supply Chain Intelligence
 
-- Improve unused detection: detect usage in config files and dynamic imports.
-- Better handling of common framework patterns.
+- Add trust score per package.
+- Factor in publish cadence, maintainer count, and repo activity.
+- Add risk propagation so users can see what introduces risky packages.
 
-### v0.6
+### v0.9 - Monorepo Intelligence
 
-- Add pnpm/yarn workspace support.
-- Add per-package overrides in workspace config.
+- Add cross-workspace dependency analysis.
+- Add duplicate tracing across packages.
+- Add ownership-style workspace insights.
 
-### v0.7
+### v1.0 - CI and Ecosystem Ready
 
-- Add suggestions engine improvements (dedupe + upgrade prioritization).
-- Add summary of major upgrades only.
-
-### v0.8
-
-- Add performance benchmarks + large repo test fixtures.
-- Add caching to disk (optional).
-
-### v0.9
-
-- Freeze output format and docs.
-- Hardening sweep + regression testing.
+- Add GitHub Action support.
+- Add CI gate mode and baseline mode.
+- Freeze the stable JSON schema.
+- Support JSON, Markdown, and SARIF export formats.
 
 ## v1.0 Exit Criteria
 
@@ -84,3 +86,11 @@ This document tracks the requirements and milestones to reach `v1.0.0`.
 - Tests cover core logic + real-world fixtures.
 - CI workflow green across Node 18/20/22.
 - Demonstrated use on at least 3 real repos with low noise.
+- The product clearly answers:
+  - Why is this dependency here?
+  - Can I remove it safely?
+  - What should I fix first?
+
+## Roadmap Reference
+
+See [docs/product-roadmap.md](./product-roadmap.md) for the full product strategy and positioning.
