@@ -33,16 +33,26 @@ export function renderMarkdownReport(result: AnalysisResult): string {
   appendSection(
     lines,
     "Duplicate dependencies",
-    result.duplicates.map((item) => `${item.name}: ${item.versions.join(", ")}`)
+    result.duplicates.map((item) =>
+      formatEntry(
+        `${item.name}: ${item.versions.join(", ")}`,
+        item.confidence,
+        item.explanation
+      )
+    )
   );
 
   appendSection(
     lines,
     "Unused dependencies",
     result.unused.map((item) =>
-      item.package
-        ? `${item.name} (${item.section}) [${item.package}]`
-        : `${item.name} (${item.section})`
+      formatEntry(
+        item.package
+          ? `${item.name} (${item.section}) [${item.package}]`
+          : `${item.name} (${item.section})`,
+        item.confidence,
+        item.explanation
+      )
     )
   );
 
@@ -50,9 +60,13 @@ export function renderMarkdownReport(result: AnalysisResult): string {
     lines,
     "Outdated dependencies",
     result.outdated.map((item) =>
-      item.package
-        ? `${item.name}: ${item.current} -> ${item.latest} [${item.updateType}] [${item.package}]`
-        : `${item.name}: ${item.current} -> ${item.latest} [${item.updateType}]`
+      formatEntry(
+        item.package
+          ? `${item.name}: ${item.current} -> ${item.latest} [${item.updateType}] [${item.package}]`
+          : `${item.name}: ${item.current} -> ${item.latest} [${item.updateType}]`,
+        item.confidence,
+        item.explanation
+      )
     )
   );
 
@@ -60,9 +74,13 @@ export function renderMarkdownReport(result: AnalysisResult): string {
     lines,
     "Risky dependencies",
     result.risks.map((item) =>
-      item.package
-        ? `${item.name}: ${item.reasons.join("; ")} [${item.package}]`
-        : `${item.name}: ${item.reasons.join("; ")}`
+      formatEntry(
+        item.package
+          ? `${item.name}: ${item.reasons.join("; ")} [${item.package}]`
+          : `${item.name}: ${item.reasons.join("; ")}`,
+        item.confidence,
+        item.explanation
+      )
     )
   );
 
@@ -89,4 +107,15 @@ function appendSection(lines: string[], title: string, items: string[]): void {
     lines.push(`- ${item}`);
   }
   lines.push("");
+}
+
+function formatEntry(
+  label: string,
+  confidence: number,
+  explanation: string[]
+): string {
+  const reasonSummary =
+    explanation.length > 0 ? ` | why: ${explanation.join("; ")}` : "";
+
+  return `${label} | confidence ${Math.round(confidence * 100)}%${reasonSummary}`;
 }

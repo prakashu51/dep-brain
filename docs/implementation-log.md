@@ -109,6 +109,66 @@ Use this format for future entries:
 
 - `npm run typecheck`
 - `npm run test`
+
+## 2026-04-21 - Product roadmap alignment iteration
+
+### What changed
+
+- Added a dedicated product roadmap and strategy document for the `v0.5.x` to `v1.0` path.
+- Updated the README positioning from generic dependency health analysis toward explainable dependency intelligence.
+- Refreshed the project brief to reflect product pillars, strategic priorities, and current stage.
+- Updated the v1 readiness checklist so milestone language matches the newer roadmap.
+
+### Why it changed
+
+- The existing docs reflected an older MVP framing and no longer matched the stronger product strategy for `dep-brain`.
+- This iteration aligns future implementation work around explainability, confidence, actionability, and CI readiness.
+
+### Files touched
+
+- `README.md`
+- `docs/project-brief.md`
+- `docs/product-roadmap.md`
+- `docs/v1-readiness.md`
+- `docs/implementation-log.md`
+
+### Verification completed
+
+- Not applicable (documentation-only change)
+
+## 2026-04-21 - v0.6 explainability and confidence iteration
+
+### What changed
+
+- Added per-finding `confidence`, `reasonCodes`, and `explanation` fields to analysis output types.
+- Extended duplicate, unused, outdated, and risk checks so they emit explainable issue metadata.
+- Surfaced confidence and "why" details in console and markdown reports.
+- Bumped the analysis output version to `1.1` and updated the JSON schema.
+- Expanded tests to cover the new explainability contract.
+
+### Why it changed
+
+- `v0.6` focuses on making findings more trustworthy and understandable.
+- This iteration turns previously binary-style findings into confidence-oriented output with machine-readable reasons.
+
+### Files touched
+
+- `src/core/types.ts`
+- `src/core/analyzer.ts`
+- `src/checks/duplicate.ts`
+- `src/checks/unused.ts`
+- `src/checks/outdated.ts`
+- `src/checks/risk.ts`
+- `src/reporters/console.ts`
+- `src/reporters/markdown.ts`
+- `depbrain.output.schema.json`
+- `tests/run.js`
+- `docs/implementation-log.md`
+
+### Verification completed
+
+- `cmd /c npm run typecheck`
+- `cmd /c npm run test`
 - `npm run build`
 - `node dist/cli.js analyze tests/fixtures/config-project`
 - `node dist/cli.js analyze tests/fixtures/unused-project --fail-on-unused`

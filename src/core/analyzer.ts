@@ -31,12 +31,18 @@ export interface DuplicateDependency {
   name: string;
   versions: string[];
   instances: DuplicateInstance[];
+  confidence: number;
+  reasonCodes: string[];
+  explanation: string[];
 }
 
 export interface UnusedDependency {
   name: string;
   section: "dependencies" | "devDependencies";
   package?: string;
+  confidence: number;
+  reasonCodes: string[];
+  explanation: string[];
 }
 
 export interface OutdatedDependency {
@@ -45,12 +51,18 @@ export interface OutdatedDependency {
   latest: string;
   updateType: "major" | "minor" | "patch" | "unknown";
   package?: string;
+  confidence: number;
+  reasonCodes: string[];
+  explanation: string[];
 }
 
 export interface RiskDependency {
   name: string;
   reasons: string[];
   package?: string;
+  confidence: number;
+  reasonCodes: string[];
+  explanation: string[];
 }
 
 export interface AnalysisResult {
@@ -86,7 +98,7 @@ export interface PackageAnalysisResult {
   suggestions: string[];
 }
 
-export const OUTPUT_VERSION = "1.0";
+export const OUTPUT_VERSION = "1.1";
 
 export interface ScoreBreakdown {
   baseScore: number;
@@ -473,7 +485,10 @@ function mapDuplicateIssues(issues: Issue[]): DuplicateDependency[] {
     versions: Array.isArray(issue.meta?.versions) ? (issue.meta?.versions as string[]) : [],
     instances: Array.isArray(issue.meta?.instances)
       ? (issue.meta?.instances as { path: string; version: string }[])
-      : []
+      : [],
+    confidence: normalizeConfidence(issue.confidence),
+    reasonCodes: normalizeStringArray(issue.reasonCodes),
+    explanation: normalizeStringArray(issue.explanation)
   }));
 }
 
@@ -481,7 +496,10 @@ function mapUnusedIssues(issues: Issue[]): UnusedDependency[] {
   return issues.map((issue) => ({
     name: String(issue.meta?.name ?? issue.package ?? "unknown"),
     section:
-      issue.meta?.section === "devDependencies" ? "devDependencies" : "dependencies"
+      issue.meta?.section === "devDependencies" ? "devDependencies" : "dependencies",
+    confidence: normalizeConfidence(issue.confidence),
+    reasonCodes: normalizeStringArray(issue.reasonCodes),
+    explanation: normalizeStringArray(issue.explanation)
   }));
 }
 
@@ -493,15 +511,37 @@ function mapOutdatedIssues(issues: Issue[]): OutdatedDependency[] {
     updateType:
       issue.meta?.updateType === "major" || issue.meta?.updateType === "minor" || issue.meta?.updateType === "patch"
         ? issue.meta.updateType
-        : "unknown"
+        : "unknown",
+    confidence: normalizeConfidence(issue.confidence),
+    reasonCodes: normalizeStringArray(issue.reasonCodes),
+    explanation: normalizeStringArray(issue.explanation)
   }));
 }
 
 function mapRiskIssues(issues: Issue[]): RiskDependency[] {
   return issues.map((issue) => ({
     name: String(issue.meta?.name ?? issue.package ?? "unknown"),
-    reasons: Array.isArray(issue.meta?.reasons) ? (issue.meta?.reasons as string[]) : []
+    reasons: Array.isArray(issue.meta?.reasons) ? (issue.meta?.reasons as string[]) : [],
+    confidence: normalizeConfidence(issue.confidence),
+    reasonCodes: normalizeStringArray(issue.reasonCodes),
+    explanation: normalizeStringArray(issue.explanation)
   }));
+}
+
+function normalizeConfidence(value: number | undefined): number {
+  if (typeof value !== "number" || Number.isNaN(value)) {
+    return 0.5;
+  }
+
+  return Math.min(0.99, Math.max(0, Number(value.toFixed(2))));
+}
+
+function normalizeStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.filter((entry): entry is string => typeof entry === "string");
 }
 
 function buildScoreBreakdown(

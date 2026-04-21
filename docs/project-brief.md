@@ -14,132 +14,58 @@ Current tools are fragmented:
 - `depcheck`: unused packages only
 - dedupe tools: duplicate packages only
 
-There is no unified intelligence layer for dependency health.
+There is no unified intelligence layer for dependency health, and most tools stop short of explaining what developers should do next.
 
 ## Solution
 
-Build a CLI tool that analyzes dependencies and provides:
+Build a dependency decision engine that analyzes dependencies and provides:
 
 - Health score
 - Duplicate detection
 - Unused dependency detection
 - Outdated package detection
 - Risk analysis
+- Explainable recommendations
+- Confidence-oriented guidance
 
 ## Vision
 
-`npm audit + depcheck + dedupe + intelligence = one tool`
+`dep-brain` should move from:
 
-## Feature Roadmap
+`"Here are issues in your dependencies"`
 
-### Month 1 (MVP)
+to:
 
-- CLI setup
-- Duplicate detection
-- Unused dependency detection
-- Outdated packages
+`"Here's what matters, why it matters, and what you should do next."`
 
-### Month 2 (Differentiation)
+## Product Pillars
 
-- Dependency health score
-- Maintenance and risk analysis
-- Improved CLI output
+1. Explain
+2. Evaluate
+3. Recommend
+4. Enforce
 
-### Month 3 (Growth and Scale)
+## Current Stage
 
-- GitHub Action
-- CI/CD integration
-- Suggestions engine
+The repository is currently at `v0.5.x`, which is a strong technical foundation:
 
-## Architecture
+- CLI-based analysis
+- JSON and console reporting
+- Config and policy support
+- Workspace-aware analysis
+- CI-friendly failure modes
+- Heuristic improvements for common dev tools
 
-```text
-src/
-├── cli.ts
-├── core/
-│   ├── analyzer.ts
-│   ├── graph-builder.ts
-│   ├── scorer.ts
-├── checks/
-│   ├── duplicate.ts
-│   ├── unused.ts
-│   ├── outdated.ts
-│   ├── risk.ts
-├── reporters/
-│   ├── console.ts
-│   ├── json.ts
-└── utils/
-    ├── npm-api.ts
-    ├── file-parser.ts
-```
+The next stage is product differentiation through explainability, confidence, and actionability.
 
-## Core Algorithms
+## Strategic Priorities
 
-### Duplicate Detection
-
-- Parse lockfile
-- Group by package name
-- Identify multiple versions
-
-### Health Score
-
-```text
-score = 100
-- (duplicates * 5)
-- (outdated * 3)
-- (unused * 4)
-- (high risk * 10)
-```
-
-### Risk Detection
-
-- Last publish date older than 2 years
-- Low download count
-- Missing repository
-
-## Sample CLI Output
-
-```text
-Project Health: 61/100
-
-3 duplicate dependencies
-2 unused packages
-4 outdated libraries
-
-Suggestions:
-- Replace moment -> dayjs
-- Remove lodash (unused)
-```
-
-## Success Metrics
-
-- Month 1: 100+ installs
-- Month 2: 500+ installs
-- Month 3: 1000+ installs
-
-## Go-To-Market
-
-- Dev.to article: "Your package.json is lying to you"
-- Reddit communities like `r/node` and `r/javascript`
-- Twitter/X launch thread
-
-## Execution Plan
-
-### Month 1
-
-- Build core engine
-- Release `v0.1`
-
-### Month 2
-
-- Add scoring and risk
-- Release `v1.0`
-
-### Month 3
-
-- Add CI and GitHub Action
-- Release `v1.5`
+1. Explainability and confidence
+2. Safe removal guidance
+3. Trust and risk intelligence
+4. Monorepo intelligence
+5. CI integration
 
 ## Key Principle
 
-Execution is more important than the idea. Daily commits, continuous feedback, and iteration drive success.
+Optimize for trust, clarity, and actionability over visual polish or raw check count.

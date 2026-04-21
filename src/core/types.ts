@@ -1,10 +1,15 @@
 export type IssueSeverity = "info" | "warning" | "critical";
 
+export type ReasonCode = string;
+
 export type Issue = {
   id: string;
   message: string;
   package?: string;
   severity: IssueSeverity;
+  confidence?: number;
+  reasonCodes?: ReasonCode[];
+  explanation?: string[];
   meta?: Record<string, unknown>;
 };
 

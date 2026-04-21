@@ -4,11 +4,16 @@
 [![npm downloads](https://img.shields.io/npm/dm/dep-brain)](https://www.npmjs.com/package/dep-brain)
 [![license](https://img.shields.io/npm/l/dep-brain)](LICENSE)
 
-`dep-brain` is a CLI and library for analyzing dependency health in JavaScript and TypeScript projects.
+`dep-brain` is a CLI and library for explainable dependency intelligence in JavaScript and TypeScript projects.
 
 ## Vision
 
-`npm audit + depcheck + dedupe + intelligence = one tool`
+`dep-brain` aims to become a dependency decision engine:
+
+- Explain why a dependency matters
+- Evaluate how safe, risky, or necessary it is
+- Recommend what to do next
+- Enforce decisions in CI workflows
 
 ## What It Does
 
@@ -18,6 +23,12 @@
 - Highlight dependency risk signals
 - Generate a simple project health score
 - Output reports in human-readable or JSON format
+
+The long-term goal is not just to list problems, but to answer:
+
+- Why is this dependency here?
+- Can I remove it safely?
+- What should I fix first?
 
 ## Current MVP Features
 
@@ -225,14 +236,20 @@ src/
     `-- config.ts
 ```
 
-## Roadmap Direction
+## Product Direction
 
-- Improve false-positive reduction for unused dependency detection
-- Improve monorepo and workspace support
-- Strengthen risk scoring and suggestions
-- Add CI and GitHub Action support in later releases
+`dep-brain` is currently in the `v0.5.x` foundation stage. The next roadmap is:
+
+- `v0.6`: explainability and confidence scoring
+- `v0.7`: safe removal guidance and actionable recommendations
+- `v0.8`: supply-chain trust and risk intelligence
+- `v0.9`: deeper monorepo and ownership intelligence
+- `v1.0`: stable CI, ecosystem exports, and production readiness
+
+The project should optimize for trust, clarity, and actionability over flashy UI, generic graphs, or simply adding more checks.
 
 ## Repository Notes
 
 - Project brief: [docs/project-brief.md](./docs/project-brief.md)
+- Product roadmap: [docs/product-roadmap.md](./docs/product-roadmap.md)
 - Implementation history: [docs/implementation-log.md](./docs/implementation-log.md)
