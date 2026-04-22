@@ -7,7 +7,7 @@ export function renderConsoleReport(result: AnalysisResult): string {
     lines.push("Top Issues:");
     for (const item of result.topIssues) {
       lines.push(
-        `- [${item.priority.toUpperCase()}] ${item.kind} ${item.name}${item.package ? ` [${item.package}]` : ""} | confidence ${Math.round(item.confidence * 100)}% | ${item.summary}`
+        `- [${item.priority.toUpperCase()}] ${item.kind} ${item.name}${item.package ? ` [${item.package}]` : ""}${item.trustScore ? ` | trust ${item.trustScore.toUpperCase()}` : ""} | confidence ${Math.round(item.confidence * 100)}% | ${item.summary}`
       );
     }
     lines.push("");
@@ -85,8 +85,8 @@ export function renderConsoleReport(result: AnalysisResult): string {
     result.risks.map((item) =>
       formatEntry(
         item.package
-          ? `${item.name}: ${item.reasons.join("; ")} [${item.package}]`
-          : `${item.name}: ${item.reasons.join("; ")}`,
+          ? `${item.name}: ${item.reasons.join("; ")} [${item.package}] [trust ${item.trustScore.toUpperCase()}]`
+          : `${item.name}: ${item.reasons.join("; ")} [trust ${item.trustScore.toUpperCase()}]`,
         item.confidence,
         item.explanation,
         item.recommendation

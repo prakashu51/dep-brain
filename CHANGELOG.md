@@ -9,3 +9,5 @@ All notable changes to this project will be documented in this file.
 - Improved duplicate detection and unused dependency heuristics.
 - Actionable recommendations for unused, duplicate, outdated, and risk findings.
 - Ranked top-issues summary output with `--top`.
+- Supply-chain trust scoring for risk findings.
+- Structured risk factors in JSON output.

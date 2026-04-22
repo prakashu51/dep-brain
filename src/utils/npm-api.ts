@@ -3,6 +3,9 @@ export interface PackageMetadata {
   repository: string | null;
   downloads: number | null;
   daysSincePublish: number | null;
+  maintainersCount: number | null;
+  versionCount: number | null;
+  recentReleaseCount: number | null;
 }
 
 const metadataCache = new Map<string, Promise<PackageMetadata | null>>();
@@ -43,6 +46,8 @@ async function fetchPackageMetadata(name: string): Promise<PackageMetadata | nul
     const packageJson = (await packageResponse.json()) as {
       "dist-tags"?: { latest?: string };
       repository?: string | { url?: string };
+      maintainers?: Array<{ name?: string; email?: string }>;
+      versions?: Record<string, unknown>;
       time?: Record<string, string>;
     };
 
@@ -68,13 +73,38 @@ async function fetchPackageMetadata(name: string): Promise<PackageMetadata | nul
         ? packageJson.repository
         : packageJson.repository?.url ?? null;
 
+    const maintainersCount = Array.isArray(packageJson.maintainers)
+      ? packageJson.maintainers.length
+      : null;
+    const versionCount = packageJson.versions
+      ? Object.keys(packageJson.versions).length
+      : null;
+    const recentReleaseCount = countRecentReleases(packageJson.time ?? {});
+
     return {
       latestVersion,
       repository,
       downloads: downloadsJson.downloads ?? null,
-      daysSincePublish
+      daysSincePublish,
+      maintainersCount,
+      versionCount,
+      recentReleaseCount
     };
   } catch {
     return null;
   }
+}
+
+function countRecentReleases(time: Record<string, string>): number | null {
+  const values = Object.entries(time)
+    .filter(([key]) => key !== "created" && key !== "modified")
+    .map(([, value]) => new Date(value).getTime())
+    .filter((value) => Number.isFinite(value));
+
+  if (values.length === 0) {
+    return null;
+  }
+
+  const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
+  return values.filter((value) => value >= thirtyDaysAgo).length;
 }
