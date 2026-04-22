@@ -21,6 +21,7 @@
 - Detect likely unused dependencies from source imports and scripts
 - Detect outdated packages
 - Highlight dependency risk signals
+- Score package trust using supply-chain metadata
 - Generate a simple project health score
 - Output reports in human-readable or JSON format
 
@@ -256,6 +257,8 @@ src/
 - `v1.0`: stable CI, ecosystem exports, and production readiness
 
 The project should optimize for trust, clarity, and actionability over flashy UI, generic graphs, or simply adding more checks.
+
+Risk findings now include a `trustScore` plus structured `riskFactors` such as publish recency, maintainer count, and repository presence.
 
 ## Repository Notes
 

@@ -3,6 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { findDuplicateDependencies } from "../dist/checks/duplicate.js";
 import { findOutdatedDependencies } from "../dist/checks/outdated.js";
+import { findRiskDependencies } from "../dist/checks/risk.js";
 import { findUnusedDependencies } from "../dist/checks/unused.js";
 import { analyzeProject } from "../dist/core/analyzer.js";
 import { buildDependencyGraph } from "../dist/core/graph-builder.js";
@@ -73,6 +74,40 @@ const tests = [
           ["gamma", "patch"]
         ]
       );
+    }
+  },
+  {
+    name: "risk detection includes trust score and risk factors",
+    run: async () => {
+      const risks = await findRiskDependencies(
+        {
+          rootDir: "D:/fixture",
+          packageJsonPath: "D:/fixture/package.json",
+          dependencies: {
+            risky: "^1.0.0"
+          },
+          devDependencies: {},
+          scripts: {},
+          lockPackages: {}
+        },
+        {
+          resolvePackageMetadata: async () => ({
+            latestVersion: "1.0.1",
+            repository: null,
+            downloads: 120,
+            daysSincePublish: 900,
+            maintainersCount: 1,
+            versionCount: 2,
+            recentReleaseCount: 0
+          })
+        }
+      );
+
+      assert.equal(risks.length, 1);
+      assert.equal(risks[0]?.trustScore, "low");
+      assert.equal(risks[0]?.riskFactors.hasRepository, false);
+      assert.equal(risks[0]?.riskFactors.dependencyType, "dependencies");
+      assert.ok(risks[0]?.reasonCodes.includes("stale_release"));
     }
   },
   {
@@ -224,6 +259,7 @@ const tests = [
       assert.ok(unusedItem.recommendation);
       assert.equal(unusedItem.recommendation.action, "remove");
       assert.ok(result.topIssues.length > 0);
+      assert.ok(result.risks.every((item) => typeof item.trustScore === "string"));
     }
   },
   {
@@ -241,7 +277,7 @@ const tests = [
     name: "console report is non-empty",
     run: async () => {
       const report = renderConsoleReport({
-        outputVersion: "1.2",
+        outputVersion: "1.3",
         rootDir: "D:/fixture",
         score: 100,
         scoreBreakdown: {
@@ -304,7 +340,7 @@ const tests = [
     name: "json report is non-empty",
     run: async () => {
       const report = renderJsonReport({
-        outputVersion: "1.2",
+        outputVersion: "1.3",
         rootDir: "D:/fixture",
         score: 100,
         scoreBreakdown: {
@@ -367,7 +403,7 @@ const tests = [
     name: "markdown report is non-empty",
     run: async () => {
       const report = renderMarkdownReport({
-        outputVersion: "1.2",
+        outputVersion: "1.3",
         rootDir: "D:/fixture",
         score: 100,
         scoreBreakdown: {

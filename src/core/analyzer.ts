@@ -35,6 +35,18 @@ export interface Recommendation {
   reasons: string[];
 }
 
+export interface RiskFactors {
+  daysSincePublish: number | null;
+  downloads: number | null;
+  maintainersCount: number | null;
+  versionCount: number | null;
+  recentReleaseCount: number | null;
+  hasRepository: boolean;
+  dependencyType: "dependencies" | "devDependencies" | "unknown";
+}
+
+export type TrustScore = "high" | "medium" | "low";
+
 export interface DuplicateDependency {
   name: string;
   versions: string[];
@@ -74,6 +86,8 @@ export interface RiskDependency {
   confidence: number;
   reasonCodes: string[];
   explanation: string[];
+  trustScore: TrustScore;
+  riskFactors: RiskFactors;
   recommendation: Recommendation;
 }
 
@@ -84,6 +98,7 @@ export interface TopIssue {
   priority: "high" | "medium" | "low";
   confidence: number;
   summary: string;
+  trustScore?: TrustScore;
   recommendation: Recommendation;
 }
 
@@ -122,7 +137,7 @@ export interface PackageAnalysisResult {
   topIssues: TopIssue[];
 }
 
-export const OUTPUT_VERSION = "1.2";
+export const OUTPUT_VERSION = "1.3";
 
 export interface ScoreBreakdown {
   baseScore: number;
@@ -559,6 +574,8 @@ function mapRiskIssues(issues: Issue[]): RiskDependency[] {
     confidence: normalizeConfidence(issue.confidence),
     reasonCodes: normalizeStringArray(issue.reasonCodes),
     explanation: normalizeStringArray(issue.explanation),
+    trustScore: normalizeTrustScore(issue.meta?.trustScore),
+    riskFactors: normalizeRiskFactors(issue.meta?.riskFactors),
     recommendation: buildRiskRecommendation(issue)
   }));
 }
@@ -636,12 +653,16 @@ function buildOutdatedRecommendation(issue: Issue): Recommendation {
 function buildRiskRecommendation(issue: Issue): Recommendation {
   const reasons = normalizeStringArray(issue.explanation);
   const confidence = normalizeConfidence(issue.confidence);
+  const trustScore = normalizeTrustScore(issue.meta?.trustScore);
 
   return {
     action: "review",
-    priority: confidence >= 0.79 ? "high" : "medium",
+    priority: trustScore === "low" || confidence >= 0.79 ? "high" : "medium",
     safety: "caution",
-    summary: "Review package trust signals and decide whether to keep, replace, or monitor it.",
+    summary:
+      trustScore === "low"
+        ? "Low trust package; review whether to replace, pin, or monitor it closely."
+        : "Review package trust signals and decide whether to keep, replace, or monitor it.",
     reasons
   };
 }
@@ -686,18 +707,31 @@ function buildTopIssues(input: {
       priority: item.recommendation.priority,
       confidence: item.confidence,
       summary: item.recommendation.summary,
+      trustScore: item.trustScore,
       recommendation: item.recommendation
     }))
   ];
 
   return issues
-    .sort((left, right) => comparePriority(right.priority, left.priority) || right.confidence - left.confidence)
+    .sort((left, right) =>
+      comparePriority(right.priority, left.priority) ||
+      compareTrustScore(right.trustScore, left.trustScore) ||
+      right.confidence - left.confidence
+    )
     .slice(0, 5);
 }
 
 function comparePriority(left: TopIssue["priority"], right: TopIssue["priority"]): number {
   const rank = { high: 3, medium: 2, low: 1 };
   return rank[left] - rank[right];
+}
+
+function compareTrustScore(
+  left: TopIssue["trustScore"] | undefined,
+  right: TopIssue["trustScore"] | undefined
+): number {
+  const rank = { low: 3, medium: 2, high: 1, undefined: 0 };
+  return rank[left ?? "undefined"] - rank[right ?? "undefined"];
 }
 
 function normalizeConfidence(value: number | undefined): number {
@@ -714,6 +748,43 @@ function normalizeStringArray(value: unknown): string[] {
   }
 
   return value.filter((entry): entry is string => typeof entry === "string");
+}
+
+function normalizeTrustScore(value: unknown): TrustScore {
+  return value === "high" || value === "medium" || value === "low"
+    ? value
+    : "medium";
+}
+
+function normalizeRiskFactors(value: unknown): RiskFactors {
+  if (!value || typeof value !== "object") {
+    return {
+      daysSincePublish: null,
+      downloads: null,
+      maintainersCount: null,
+      versionCount: null,
+      recentReleaseCount: null,
+      hasRepository: false,
+      dependencyType: "unknown"
+    };
+  }
+
+  const factors = value as Partial<RiskFactors>;
+  return {
+    daysSincePublish:
+      typeof factors.daysSincePublish === "number" ? factors.daysSincePublish : null,
+    downloads: typeof factors.downloads === "number" ? factors.downloads : null,
+    maintainersCount:
+      typeof factors.maintainersCount === "number" ? factors.maintainersCount : null,
+    versionCount: typeof factors.versionCount === "number" ? factors.versionCount : null,
+    recentReleaseCount:
+      typeof factors.recentReleaseCount === "number" ? factors.recentReleaseCount : null,
+    hasRepository: factors.hasRepository === true,
+    dependencyType:
+      factors.dependencyType === "dependencies" || factors.dependencyType === "devDependencies"
+        ? factors.dependencyType
+        : "unknown"
+  };
 }
 
 function buildScoreBreakdown(

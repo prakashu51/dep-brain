@@ -170,6 +170,39 @@ Use this format for future entries:
 - `cmd /c npm run typecheck`
 - `cmd /c npm run test`
 
+## 2026-04-22 - v0.8 supply-chain intelligence iteration
+
+### What changed
+
+- Expanded npm metadata collection with maintainer count, version history size, and recent release count.
+- Added `trustScore` and structured `riskFactors` to risk findings.
+- Improved risk scoring so stale, low-trust packages are prioritized more clearly.
+- Surfaced trust score in console and markdown output and included it in ranked top issues.
+- Added deterministic tests for trust scoring with mocked package metadata.
+
+### Why it changed
+
+- `v0.8` focuses on supply-chain intelligence rather than only basic risk flags.
+- This iteration makes dependency trust easier to interpret and prioritize in real workflows.
+
+### Files touched
+
+- `src/utils/npm-api.ts`
+- `src/core/analyzer.ts`
+- `src/checks/risk.ts`
+- `src/reporters/console.ts`
+- `src/reporters/markdown.ts`
+- `depbrain.output.schema.json`
+- `tests/run.js`
+- `README.md`
+- `CHANGELOG.md`
+- `docs/implementation-log.md`
+
+### Verification completed
+
+- `cmd /c npm run typecheck`
+- `cmd /c npm run test`
+
 ## 2026-04-21 - v0.7 actionable intelligence iteration
 
 ### What changed

@@ -17,6 +17,20 @@
         "reasons": { "type": "array", "items": { "type": "string" } }
       }
     },
+    "riskFactors": {
+      "type": "object",
+      "required": ["daysSincePublish", "downloads", "maintainersCount", "versionCount", "recentReleaseCount", "hasRepository", "dependencyType"],
+      "additionalProperties": false,
+      "properties": {
+        "daysSincePublish": { "type": ["number", "null"] },
+        "downloads": { "type": ["number", "null"] },
+        "maintainersCount": { "type": ["number", "null"] },
+        "versionCount": { "type": ["number", "null"] },
+        "recentReleaseCount": { "type": ["number", "null"] },
+        "hasRepository": { "type": "boolean" },
+        "dependencyType": { "type": "string", "enum": ["dependencies", "devDependencies", "unknown"] }
+      }
+    },
     "outputVersion": { "type": "string" },
     "rootDir": { "type": "string" },
     "score": { "type": "number" },
@@ -120,7 +134,7 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["name", "reasons", "confidence", "reasonCodes", "explanation", "recommendation"],
+        "required": ["name", "reasons", "confidence", "reasonCodes", "explanation", "trustScore", "riskFactors", "recommendation"],
         "additionalProperties": false,
         "properties": {
           "name": { "type": "string" },
@@ -129,6 +143,8 @@
           "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
           "reasonCodes": { "type": "array", "items": { "type": "string" } },
           "explanation": { "type": "array", "items": { "type": "string" } },
+          "trustScore": { "type": "string", "enum": ["high", "medium", "low"] },
+          "riskFactors": { "$ref": "#/properties/riskFactors" },
           "recommendation": { "$ref": "#/properties/recommendation" }
         }
       }
@@ -147,6 +163,7 @@
           "priority": { "type": "string", "enum": ["high", "medium", "low"] },
           "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
           "summary": { "type": "string" },
+          "trustScore": { "type": "string", "enum": ["high", "medium", "low"] },
           "recommendation": { "$ref": "#/properties/recommendation" }
         }
       }
