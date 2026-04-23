@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Dependency Brain Analysis Output",
   "type": "object",
-  "required": ["outputVersion", "rootDir", "score", "scoreBreakdown", "policy", "duplicates", "unused", "outdated", "risks", "suggestions", "topIssues", "config"],
+  "required": ["outputVersion", "rootDir", "score", "scoreBreakdown", "policy", "ownershipSummary", "duplicates", "unused", "outdated", "risks", "suggestions", "topIssues", "config"],
   "additionalProperties": false,
   "properties": {
     "recommendation": {
@@ -29,6 +29,17 @@
         "recentReleaseCount": { "type": ["number", "null"] },
         "hasRepository": { "type": "boolean" },
         "dependencyType": { "type": "string", "enum": ["dependencies", "devDependencies", "unknown"] }
+      }
+    },
+    "ownershipSummary": {
+      "type": "object",
+      "required": ["duplicates", "unused", "outdated", "risks"],
+      "additionalProperties": false,
+      "properties": {
+        "duplicates": { "type": "number" },
+        "unused": { "type": "number" },
+        "outdated": { "type": "number" },
+        "risks": { "type": "number" }
       }
     },
     "outputVersion": { "type": "string" },
@@ -66,15 +77,30 @@
         "reasons": { "type": "array", "items": { "type": "string" } }
       }
     },
+    "ownershipSummary": { "$ref": "#/properties/ownershipSummary" },
     "duplicates": {
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["name", "versions", "instances", "confidence", "reasonCodes", "explanation", "recommendation"],
+        "required": ["name", "versions", "instances", "workspaceUsage", "rootCause", "confidence", "reasonCodes", "explanation", "recommendation"],
         "additionalProperties": false,
         "properties": {
           "name": { "type": "string" },
           "versions": { "type": "array", "items": { "type": "string" } },
+          "workspaceUsage": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["workspace", "section", "declaredVersion"],
+              "additionalProperties": false,
+              "properties": {
+                "workspace": { "type": "string" },
+                "section": { "type": "string", "enum": ["dependencies", "devDependencies"] },
+                "declaredVersion": { "type": "string" }
+              }
+            }
+          },
+          "rootCause": { "type": "array", "items": { "type": "string" } },
           "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
           "reasonCodes": { "type": "array", "items": { "type": "string" } },
           "explanation": { "type": "array", "items": { "type": "string" } },

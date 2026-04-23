@@ -75,6 +75,12 @@ dep-brain --version
 
 If the root `package.json` defines `workspaces`, `dep-brain` analyzes each workspace package and reports per-package results. Aggregated counts are still shown at the top-level summary.
 
+Workspace analysis now includes:
+
+- per-workspace ownership summaries
+- root-level duplicate attribution back to contributing workspaces
+- top issues that stay tagged to the workspace that should act
+
 ## Example Output
 
 ```text

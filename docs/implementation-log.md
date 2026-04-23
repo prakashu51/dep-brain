@@ -170,6 +170,42 @@ Use this format for future entries:
 - `cmd /c npm run typecheck`
 - `cmd /c npm run test`
 
+## 2026-04-22 - v0.9 monorepo intelligence iteration
+
+### What changed
+
+- Added workspace ownership summaries to analysis results.
+- Added workspace attribution and root-cause traces for duplicate dependencies in monorepos.
+- Updated console and markdown reports to show workspace ownership counts and duplicate origin paths.
+- Expanded the workspace fixture to include a real cross-workspace duplicate scenario.
+- Added regression coverage for workspace duplicate attribution.
+
+### Why it changed
+
+- `v0.9` is focused on helping teams understand which workspace owns a dependency problem.
+- This iteration makes monorepo output more actionable by connecting top-level findings back to specific packages.
+
+### Files touched
+
+- `src/core/analyzer.ts`
+- `src/checks/duplicate.ts`
+- `src/reporters/console.ts`
+- `src/reporters/markdown.ts`
+- `src/index.ts`
+- `depbrain.output.schema.json`
+- `tests/run.js`
+- `tests/fixtures/workspace-root/package-lock.json`
+- `tests/fixtures/workspace-root/packages/b/package.json`
+- `tests/fixtures/workspace-root/packages/b/src/index.ts`
+- `README.md`
+- `CHANGELOG.md`
+- `docs/implementation-log.md`
+
+### Verification completed
+
+- `cmd /c npm run typecheck`
+- `cmd /c npm run test`
+
 ## 2026-04-22 - v0.8 supply-chain intelligence iteration
 
 ### What changed

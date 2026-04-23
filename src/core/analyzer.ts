@@ -27,6 +27,19 @@ export interface DuplicateInstance {
   version: string;
 }
 
+export interface WorkspaceDependencyUsage {
+  workspace: string;
+  section: "dependencies" | "devDependencies";
+  declaredVersion: string;
+}
+
+export interface WorkspaceOwnershipSummary {
+  duplicates: number;
+  unused: number;
+  outdated: number;
+  risks: number;
+}
+
 export interface Recommendation {
   action: "remove" | "consolidate" | "upgrade" | "review";
   priority: "high" | "medium" | "low";
@@ -51,6 +64,8 @@ export interface DuplicateDependency {
   name: string;
   versions: string[];
   instances: DuplicateInstance[];
+  workspaceUsage: WorkspaceDependencyUsage[];
+  rootCause: string[];
   confidence: number;
   reasonCodes: string[];
   explanation: string[];
@@ -108,6 +123,7 @@ export interface AnalysisResult {
   score: number;
   scoreBreakdown: ScoreBreakdown;
   policy: PolicyResult;
+  ownershipSummary: WorkspaceOwnershipSummary;
   duplicates: DuplicateDependency[];
   unused: UnusedDependency[];
   outdated: OutdatedDependency[];
@@ -129,6 +145,7 @@ export interface PackageAnalysisResult {
   score: number;
   scoreBreakdown: ScoreBreakdown;
   policy: PolicyResult;
+  ownershipSummary: WorkspaceOwnershipSummary;
   duplicates: DuplicateDependency[];
   unused: UnusedDependency[];
   outdated: OutdatedDependency[];
@@ -137,7 +154,7 @@ export interface PackageAnalysisResult {
   topIssues: TopIssue[];
 }
 
-export const OUTPUT_VERSION = "1.3";
+export const OUTPUT_VERSION = "1.4";
 
 export interface ScoreBreakdown {
   baseScore: number;
@@ -182,6 +199,18 @@ export async function analyzeProject(
     packages.push({ ...result, name: workspace.name });
   }
 
+  const workspaceGraphs = await Promise.all(
+    workspaces.map(async (workspace) => ({
+      name: workspace.name,
+      graph: await buildDependencyGraph(workspace.rootDir)
+    }))
+  );
+
+  const attributedDuplicates = addWorkspaceAttribution(
+    duplicates,
+    workspaceGraphs
+  );
+
   const unused = packages.flatMap((pkg) =>
     pkg.unused.map((item) => ({ ...item, package: pkg.name }))
   );
@@ -222,7 +251,7 @@ export async function analyzeProject(
   const policy = evaluatePolicy(
     {
       score,
-      duplicates: duplicates.length,
+      duplicates: attributedDuplicates.length,
       unused: unused.length,
       outdated: outdated.length,
       risks: risks.length
@@ -236,12 +265,23 @@ export async function analyzeProject(
     score,
     scoreBreakdown,
     policy,
-    duplicates,
+    ownershipSummary: buildOwnershipSummary({
+      duplicates: attributedDuplicates,
+      unused,
+      outdated,
+      risks
+    }),
+    duplicates: attributedDuplicates,
     unused,
     outdated,
     risks,
     suggestions,
-    topIssues: buildTopIssues({ duplicates, unused, outdated, risks }),
+    topIssues: buildTopIssues({
+      duplicates: attributedDuplicates,
+      unused,
+      outdated,
+      risks
+    }),
     config,
     packages
   };
@@ -412,6 +452,12 @@ async function analyzeSingleProject(
     score,
     scoreBreakdown,
     policy,
+    ownershipSummary: buildOwnershipSummary({
+      duplicates,
+      unused: scopedUnused,
+      outdated: scopedOutdated,
+      risks: scopedRisks
+    }),
     duplicates,
     unused: scopedUnused,
     outdated: scopedOutdated,
@@ -532,6 +578,8 @@ function mapDuplicateIssues(issues: Issue[]): DuplicateDependency[] {
     instances: Array.isArray(issue.meta?.instances)
       ? (issue.meta?.instances as { path: string; version: string }[])
       : [],
+    workspaceUsage: normalizeWorkspaceUsage(issue.meta?.workspaceUsage),
+    rootCause: normalizeStringArray(issue.meta?.rootCause),
     confidence: normalizeConfidence(issue.confidence),
     reasonCodes: normalizeStringArray(issue.reasonCodes),
     explanation: normalizeStringArray(issue.explanation),
@@ -734,6 +782,57 @@ function compareTrustScore(
   return rank[left ?? "undefined"] - rank[right ?? "undefined"];
 }
 
+function addWorkspaceAttribution(
+  duplicates: DuplicateDependency[],
+  workspaceGraphs: { name: string; graph: import("./graph-builder.js").DependencyGraph }[]
+): DuplicateDependency[] {
+  return duplicates.map((item) => {
+    const usage: WorkspaceDependencyUsage[] = [];
+
+    for (const workspace of workspaceGraphs) {
+      const runtimeVersion = workspace.graph.dependencies[item.name];
+      if (runtimeVersion) {
+        usage.push({
+          workspace: workspace.name,
+          section: "dependencies",
+          declaredVersion: runtimeVersion
+        });
+      }
+
+      const devVersion = workspace.graph.devDependencies[item.name];
+      if (devVersion) {
+        usage.push({
+          workspace: workspace.name,
+          section: "devDependencies",
+          declaredVersion: devVersion
+        });
+      }
+    }
+
+    return {
+      ...item,
+      workspaceUsage: usage,
+      rootCause: usage.map(
+        (entry) => `${entry.workspace} -> ${item.name}@${entry.declaredVersion}`
+      )
+    };
+  });
+}
+
+function buildOwnershipSummary(input: {
+  duplicates: DuplicateDependency[];
+  unused: UnusedDependency[];
+  outdated: OutdatedDependency[];
+  risks: RiskDependency[];
+}): WorkspaceOwnershipSummary {
+  return {
+    duplicates: input.duplicates.length,
+    unused: input.unused.length,
+    outdated: input.outdated.length,
+    risks: input.risks.length
+  };
+}
+
 function normalizeConfidence(value: number | undefined): number {
   if (typeof value !== "number" || Number.isNaN(value)) {
     return 0.5;
@@ -785,6 +884,35 @@ function normalizeRiskFactors(value: unknown): RiskFactors {
         ? factors.dependencyType
         : "unknown"
   };
+}
+
+function normalizeWorkspaceUsage(value: unknown): WorkspaceDependencyUsage[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((entry) => {
+      if (!entry || typeof entry !== "object") {
+        return null;
+      }
+
+      const usage = entry as Partial<WorkspaceDependencyUsage>;
+      if (
+        typeof usage.workspace !== "string" ||
+        typeof usage.declaredVersion !== "string" ||
+        (usage.section !== "dependencies" && usage.section !== "devDependencies")
+      ) {
+        return null;
+      }
+
+      return {
+        workspace: usage.workspace,
+        section: usage.section,
+        declaredVersion: usage.declaredVersion
+      };
+    })
+    .filter((entry): entry is WorkspaceDependencyUsage => entry !== null);
 }
 
 function buildScoreBreakdown(

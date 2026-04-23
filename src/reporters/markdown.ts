@@ -27,7 +27,7 @@ export function renderMarkdownReport(result: AnalysisResult): string {
     lines.push("## Packages");
     for (const pkg of result.packages) {
       lines.push(
-        `- ${pkg.name}: ${pkg.score}/100 (D:${pkg.duplicates.length} U:${pkg.unused.length} O:${pkg.outdated.length} R:${pkg.risks.length})`
+        `- ${pkg.name}: ${pkg.score}/100 (D:${pkg.ownershipSummary.duplicates} U:${pkg.ownershipSummary.unused} O:${pkg.ownershipSummary.outdated} R:${pkg.ownershipSummary.risks})`
       );
     }
     lines.push("");
@@ -45,7 +45,7 @@ export function renderMarkdownReport(result: AnalysisResult): string {
     "Duplicate dependencies",
     result.duplicates.map((item) =>
       formatEntry(
-        `${item.name}: ${item.versions.join(", ")}`,
+        `${item.name}: ${item.versions.join(", ")}${item.rootCause.length > 0 ? ` | via ${item.rootCause.join("; ")}` : ""}`,
         item.confidence,
         item.explanation,
         item.recommendation

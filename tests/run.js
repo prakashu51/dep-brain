@@ -206,6 +206,14 @@ const tests = [
       const unused = result.unused.map((item) => item.package);
       assert.ok(unused.includes("@workspace/b"));
       assert.ok(result.unused.every((item) => Array.isArray(item.reasonCodes)));
+      assert.ok(result.duplicates.some((item) => item.name === "chalk"));
+      const chalkDuplicate = result.duplicates.find((item) => item.name === "chalk");
+      assert.ok(chalkDuplicate);
+      assert.ok(chalkDuplicate.workspaceUsage.some((item) => item.workspace === "@workspace/a"));
+      assert.ok(chalkDuplicate.workspaceUsage.some((item) => item.workspace === "@workspace/b"));
+      assert.ok(chalkDuplicate.rootCause.some((entry) => entry.includes("@workspace/a")));
+      assert.equal(result.packages?.[0]?.ownershipSummary.duplicates, 0);
+      assert.ok(typeof result.ownershipSummary.duplicates === "number");
     }
   },
   {
@@ -277,7 +285,7 @@ const tests = [
     name: "console report is non-empty",
     run: async () => {
       const report = renderConsoleReport({
-        outputVersion: "1.3",
+        outputVersion: "1.4",
         rootDir: "D:/fixture",
         score: 100,
         scoreBreakdown: {
@@ -294,6 +302,12 @@ const tests = [
           }
         },
         policy: { passed: true, reasons: [] },
+        ownershipSummary: {
+          duplicates: 0,
+          unused: 0,
+          outdated: 0,
+          risks: 0
+        },
         duplicates: [],
         unused: [],
         outdated: [],
@@ -340,7 +354,7 @@ const tests = [
     name: "json report is non-empty",
     run: async () => {
       const report = renderJsonReport({
-        outputVersion: "1.3",
+        outputVersion: "1.4",
         rootDir: "D:/fixture",
         score: 100,
         scoreBreakdown: {
@@ -357,6 +371,12 @@ const tests = [
           }
         },
         policy: { passed: true, reasons: [] },
+        ownershipSummary: {
+          duplicates: 0,
+          unused: 0,
+          outdated: 0,
+          risks: 0
+        },
         duplicates: [],
         unused: [],
         outdated: [],
@@ -403,7 +423,7 @@ const tests = [
     name: "markdown report is non-empty",
     run: async () => {
       const report = renderMarkdownReport({
-        outputVersion: "1.3",
+        outputVersion: "1.4",
         rootDir: "D:/fixture",
         score: 100,
         scoreBreakdown: {
@@ -420,6 +440,12 @@ const tests = [
           }
         },
         policy: { passed: true, reasons: [] },
+        ownershipSummary: {
+          duplicates: 0,
+          unused: 0,
+          outdated: 0,
+          risks: 0
+        },
         duplicates: [],
         unused: [],
         outdated: [],

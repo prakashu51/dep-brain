@@ -10,6 +10,8 @@ export async function findDuplicateDependencies(
       name,
       versions: Array.from(new Set(instances.map((instance) => instance.version))).sort(),
       instances,
+      workspaceUsage: [],
+      rootCause: [],
       confidence: 0.98,
       reasonCodes: [
         "multiple_lockfile_versions",
