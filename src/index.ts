@@ -7,10 +7,14 @@ export type {
   PolicyResult,
   PackageAnalysisResult,
   Recommendation,
+  RiskFactors,
   ScoreBreakdown,
   RiskDependency,
   TopIssue,
-  UnusedDependency
+  TrustScore,
+  UnusedDependency,
+  WorkspaceDependencyUsage,
+  WorkspaceOwnershipSummary
 } from "./core/analyzer.js";
 export { OUTPUT_VERSION } from "./core/analyzer.js";
 export type { AnalysisContext, CheckResult, Issue } from "./core/types.js";

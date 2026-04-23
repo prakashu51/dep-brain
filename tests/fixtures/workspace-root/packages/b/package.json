@@ -2,6 +2,7 @@
   "name": "@workspace/b",
   "version": "1.0.0",
   "dependencies": {
+    "chalk": "^4.1.2",
     "unused-lib": "^1.0.0"
   }
 }

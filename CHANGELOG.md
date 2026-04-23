@@ -11,3 +11,5 @@ All notable changes to this project will be documented in this file.
 - Ranked top-issues summary output with `--top`.
 - Supply-chain trust scoring for risk findings.
 - Structured risk factors in JSON output.
+- Monorepo ownership summaries for workspace packages.
+- Workspace-level duplicate attribution and root-cause tracing.
