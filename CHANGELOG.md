@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased
+## 0.9.0
 
 - Workspace-aware analysis for npm workspaces.
 - Config loading and CI policy controls.
