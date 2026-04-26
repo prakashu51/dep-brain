@@ -12,6 +12,7 @@ import { loadDepBrainConfig } from "../dist/utils/config.js";
 import { renderConsoleReport } from "../dist/reporters/console.js";
 import { renderJsonReport } from "../dist/reporters/json.js";
 import { renderMarkdownReport } from "../dist/reporters/markdown.js";
+import { renderSarifReport } from "../dist/reporters/sarif.js";
 import { collectProjectFiles } from "../dist/utils/file-parser.js";
 import { buildAnalysisContext } from "../dist/core/context.js";
 import { defaultConfig } from "../dist/utils/config.js";
@@ -282,6 +283,23 @@ const tests = [
     }
   },
   {
+    name: "baseline mode filters out existing issues",
+    run: async () => {
+      const fixtureRoot = path.join(__dirname, "fixtures", "unused-project");
+      const baseline = {
+        unused: [{ name: "unused-lib", section: "dependencies" }]
+      };
+
+      const result = await analyzeProject({
+        rootDir: fixtureRoot,
+        baseline
+      });
+
+      assert.equal(result.unused.length, 1);
+      assert.equal(result.unused[0].name, "unused-dev-tool");
+    }
+  },
+  {
     name: "console report is non-empty",
     run: async () => {
       const report = renderConsoleReport({
@@ -489,6 +507,51 @@ const tests = [
     }
   },
   {
+    name: "sarif report is valid",
+    run: async () => {
+      const reportData = {
+        outputVersion: "1.4",
+        rootDir: "D:/fixture",
+        score: 100,
+        scoreBreakdown: { baseScore: 100, duplicates: 0, outdated: 0, unused: 0, risks: 0, weights: { duplicateWeight: 5, outdatedWeight: 3, unusedWeight: 4, riskWeight: 10 } },
+        policy: { passed: true, reasons: [] },
+        ownershipSummary: { duplicates: 0, unused: 0, outdated: 0, risks: 0 },
+        duplicates: [],
+        unused: [{
+          name: "unused-lib",
+          section: "dependencies",
+          confidence: 0.9,
+          reasonCodes: ["no-usage"],
+          explanation: ["Not used in code"],
+          recommendation: {
+            action: "remove",
+            priority: "high",
+            safety: "safe",
+            summary: "Remove unused-lib",
+            reasons: ["Not used in code"]
+          }
+        }],
+        outdated: [],
+        risks: [],
+        suggestions: [],
+        topIssues: [],
+        config: defaultConfig
+      };
+
+      const sarifJson = renderSarifReport(reportData);
+      const parsed = JSON.parse(sarifJson);
+      
+      assert.equal(parsed.version, "2.1.0");
+      assert.equal(parsed.runs[0].tool.driver.name, "Dependency Brain");
+      assert.ok(parsed.runs[0].results.length > 0);
+      
+      const result = parsed.runs[0].results[0];
+      assert.equal(result.ruleId, "dep-brain-unused");
+      assert.equal(result.level, "error"); // Because priority was "high"
+      assert.ok(result.message.text.includes("unused-lib"));
+    }
+  },
+  {
     name: "collectProjectFiles respects exclude paths",
     run: async () => {
       const fixtureRoot = path.join(__dirname, "fixtures", "exclude-project");
@@ -519,7 +582,8 @@ for (const entry of tests) {
 }
 
 if (failed > 0) {
-  process.exitCode = 1;
+  process.exit(1);
 } else {
   console.log(`All ${tests.length} tests passed.`);
+  process.exit(0);
 }
