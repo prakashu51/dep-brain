@@ -61,6 +61,8 @@ npx dep-brain analyze --min-score 90 --fail-on-risks
 npx dep-brain analyze ./path-to-project --fail-on-unused --json
 npx dep-brain analyze --md > depbrain.md
 npx dep-brain analyze --json --out depbrain.json
+npx dep-brain analyze --sarif --out depbrain.sarif
+npx dep-brain analyze --baseline depbrain-baseline.json
 npx dep-brain report --from depbrain.json --md --out depbrain.md
 
 dep-brain config
