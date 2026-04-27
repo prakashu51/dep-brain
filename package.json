@@ -1,7 +1,7 @@
 {
   "name": "dep-brain",
-  "version": "0.9.0",
-  "description": "CLI and library for dependency health analysis",
+  "version": "1.0.0",
+  "description": "CLI and library for explainable dependency intelligence",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -13,6 +13,7 @@
     "README.md",
     "LICENSE",
     "CHANGELOG.md",
+    "action.yml",
     "depbrain.config.json",
     "depbrain.config.schema.json",
     "depbrain.output.schema.json"

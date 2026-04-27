@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 
 import { analyzeProject } from "./core/analyzer.js";
+import type { DepBrainBaseline } from "./core/analyzer.js";
 import { renderConsoleReport } from "./reporters/console.js";
 import { renderJsonReport } from "./reporters/json.js";
 import { renderMarkdownReport } from "./reporters/markdown.js";
+import { renderSarifReport } from "./reporters/sarif.js";
 import type { DepBrainConfig, DepBrainConfigOverrides } from "./utils/config.js";
 import { promises as fs } from "node:fs";
 import path from "node:path";
@@ -68,6 +70,8 @@ async function main(): Promise<void> {
           ? renderTopIssuesReport(reportData)
           : flags.has("--json")
             ? JSON.stringify(reportData, null, 2)
+            : flags.has("--sarif")
+              ? renderSarifReport(reportData)
             : renderMarkdownReport(reportData);
         await writeOutput(output, optionValues.get("--out"));
         return;
@@ -119,15 +123,19 @@ async function main(): Promise<void> {
 
   try {
     const cliConfig = buildCliConfig(flags, optionValues);
+    const baseline = await loadBaseline(optionValues.get("--baseline"));
     const result = await analyzeProject({
       rootDir: targetPath,
       configPath: optionValues.get("--config"),
-      config: cliConfig
+      config: cliConfig,
+      baseline
     });
 
     let output: string;
     if (flags.has("--json")) {
       output = renderJsonReport(result);
+    } else if (flags.has("--sarif")) {
+      output = renderSarifReport(result);
     } else if (flags.has("--top")) {
       output = renderTopIssuesReport(result);
     } else if (flags.has("--md")) {
@@ -208,9 +216,9 @@ function printHelp(): void {
   console.log("");
   console.log("Usage:");
   console.log(
-    "  dep-brain analyze [path] [--json] [--md] [--top] [--out path] [--config path] [--min-score n] [--fail-on-risks] [--fail-on-outdated] [--fail-on-unused] [--fail-on-duplicates]"
+    "  dep-brain analyze [path] [--json] [--md] [--sarif] [--top] [--out path] [--config path] [--baseline path] [--min-score n] [--fail-on-risks]"
   );
-  console.log("  dep-brain report --from <file> [--md] [--json] [--top] [--out path]");
+  console.log("  dep-brain report --from <file> [--md] [--json] [--sarif] [--top] [--out path]");
   console.log("  dep-brain config [path] [--config path]");
   console.log("  dep-brain help");
   console.log("  dep-brain --version");
@@ -218,8 +226,10 @@ function printHelp(): void {
   console.log("Options:");
   console.log("  --json              Output JSON for analysis");
   console.log("  --md                Output Markdown report");
+  console.log("  --sarif             Output SARIF format for Code Scanning");
   console.log("  --top               Output the ranked top issues only");
   console.log("  --config <path>     Path to depbrain.config.json");
+  console.log("  --baseline <path>   Ignore findings already present in a baseline JSON report");
   console.log("  --from <file>       Read analysis JSON from file");
   console.log("  --out <path>        Write output to a file");
   console.log("  --min-score <n>     Minimum score required to pass");
@@ -240,6 +250,22 @@ async function loadPackageVersion(): Promise<string | null> {
   } catch {
     return null;
   }
+}
+
+async function loadBaseline(baselinePath?: string): Promise<DepBrainBaseline | undefined> {
+  if (!baselinePath) {
+    return undefined;
+  }
+
+  const resolved = resolveUserPath(baselinePath);
+  const raw = await fs.readFile(resolved, "utf8");
+  const parsed = JSON.parse(raw) as DepBrainBaseline;
+  return {
+    duplicates: Array.isArray(parsed.duplicates) ? parsed.duplicates : [],
+    unused: Array.isArray(parsed.unused) ? parsed.unused : [],
+    outdated: Array.isArray(parsed.outdated) ? parsed.outdated : [],
+    risks: Array.isArray(parsed.risks) ? parsed.risks : []
+  };
 }
 
 async function writeOutput(output: string, outPath?: string): Promise<void> {

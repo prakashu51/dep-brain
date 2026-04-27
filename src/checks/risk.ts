@@ -29,8 +29,7 @@ export async function findRiskDependencies(
     ...graph.devDependencies
   });
 
-  const results = await Promise.all(
-    names.map(async (name) => {
+  const results = await mapWithConcurrency(names, 8, async (name) => {
       const metadata = await resolvePackageMetadata(name);
       if (!metadata) {
         return null;
@@ -61,12 +60,35 @@ export async function findRiskDependencies(
           assessment.trustScore
         )
       };
-    })
-  );
+    });
 
   return results
     .filter((item): item is RiskDependency => item !== null)
     .sort((left, right) => left.name.localeCompare(right.name));
+}
+
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  mapper: (item: T) => Promise<R>
+): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let nextIndex = 0;
+
+  async function worker(): Promise<void> {
+    while (nextIndex < items.length) {
+      const currentIndex = nextIndex;
+      nextIndex += 1;
+      results[currentIndex] = await mapper(items[currentIndex]);
+    }
+  }
+
+  const workers = Array.from(
+    { length: Math.min(limit, items.length) },
+    () => worker()
+  );
+  await Promise.all(workers);
+  return results;
 }
 
 export async function runRiskCheck(

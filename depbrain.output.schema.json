@@ -77,7 +77,6 @@
         "reasons": { "type": "array", "items": { "type": "string" } }
       }
     },
-    "ownershipSummary": { "$ref": "#/properties/ownershipSummary" },
     "duplicates": {
       "type": "array",
       "items": {
