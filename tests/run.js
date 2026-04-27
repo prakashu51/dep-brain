@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import fs from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { findDuplicateDependencies } from "../dist/checks/duplicate.js";
@@ -42,6 +44,70 @@ const tests = [
       assert.equal(duplicates.length, 1);
       assert.equal(duplicates[0]?.name, "react");
       assert.deepEqual(duplicates[0]?.versions, ["17.0.2", "18.2.0"]);
+    }
+  },
+  {
+    name: "graph builder reads pnpm lockfile duplicates",
+    run: async () => {
+      const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "depbrain-pnpm-"));
+      try {
+        await fs.writeFile(
+          path.join(tempRoot, "package.json"),
+          JSON.stringify({ dependencies: { chalk: "^5.0.0" } }),
+          "utf8"
+        );
+        await fs.writeFile(
+          path.join(tempRoot, "pnpm-lock.yaml"),
+          [
+            "lockfileVersion: '9.0'",
+            "packages:",
+            "  /chalk@4.1.2:",
+            "    resolution: {integrity: sha512-old}",
+            "  /chalk@5.3.0:",
+            "    resolution: {integrity: sha512-new}"
+          ].join("\n"),
+          "utf8"
+        );
+
+        const graph = await buildDependencyGraph(tempRoot);
+        assert.deepEqual(
+          graph.lockPackages.chalk.map((item) => item.version),
+          ["4.1.2", "5.3.0"]
+        );
+      } finally {
+        await fs.rm(tempRoot, { recursive: true, force: true });
+      }
+    }
+  },
+  {
+    name: "graph builder reads yarn lockfile duplicates",
+    run: async () => {
+      const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "depbrain-yarn-"));
+      try {
+        await fs.writeFile(
+          path.join(tempRoot, "package.json"),
+          JSON.stringify({ dependencies: { chalk: "^5.0.0" } }),
+          "utf8"
+        );
+        await fs.writeFile(
+          path.join(tempRoot, "yarn.lock"),
+          [
+            "\"chalk@^4.0.0\":",
+            "  version \"4.1.2\"",
+            "\"chalk@^5.0.0\":",
+            "  version \"5.3.0\""
+          ].join("\n"),
+          "utf8"
+        );
+
+        const graph = await buildDependencyGraph(tempRoot);
+        assert.deepEqual(
+          graph.lockPackages.chalk.map((item) => item.version),
+          ["4.1.2", "5.3.0"]
+        );
+      } finally {
+        await fs.rm(tempRoot, { recursive: true, force: true });
+      }
     }
   },
   {

@@ -17,13 +17,15 @@
 
 ## What It Does
 
-- Detect duplicate dependencies from `package-lock.json`
+- Detect duplicate dependencies from npm, pnpm, and yarn lockfiles
 - Detect likely unused dependencies from source imports and scripts
 - Detect outdated packages
 - Highlight dependency risk signals
 - Score package trust using supply-chain metadata
 - Generate a simple project health score
-- Output reports in human-readable or JSON format
+- Output reports in console, JSON, Markdown, SARIF, and top-issues formats
+- Gate CI with score and finding policies
+- Compare new findings against a baseline report
 
 The long-term goal is not just to list problems, but to answer:
 
@@ -31,18 +33,24 @@ The long-term goal is not just to list problems, but to answer:
 - Can I remove it safely?
 - What should I fix first?
 
-## Current MVP Features
+## v1 Features
 
 - Duplicate dependency detection with lockfile instance tracking
 - Unused dependency detection with runtime vs dev-tool heuristics
 - Outdated dependency reporting with `major`, `minor`, and `patch` classification
 - Risk analysis based on npm package metadata
+- Confidence scores, reason codes, explanations, and recommendations for findings
 - Config loading from `depbrain.config.json`
 - Ignore rules for noisy dependencies and checks
 - CI-friendly policy evaluation with non-zero exit codes
 - Workspace-aware analysis for npm workspaces
 - Console reporting
 - JSON output via `--json`
+- Markdown output via `--md`
+- SARIF output via `--sarif`
+- Ranked top issues via `--top`
+- Baseline mode via `--baseline`
+- Reusable GitHub Action via `action.yml`
 - Library entrypoint for programmatic use
 
 ## CLI Usage
@@ -63,6 +71,7 @@ npx dep-brain analyze --md > depbrain.md
 npx dep-brain analyze --json --out depbrain.json
 npx dep-brain analyze --sarif --out depbrain.sarif
 npx dep-brain analyze --baseline depbrain-baseline.json
+npx dep-brain analyze --baseline depbrain-baseline.json --min-score 90 --fail-on-risks
 npx dep-brain report --from depbrain.json --md --out depbrain.md
 
 dep-brain config
@@ -140,6 +149,41 @@ dep-brain analyze --json --out depbrain.json
 dep-brain report --from depbrain.json --md --out depbrain.md
 ```
 
+## Baseline Mode
+
+Baseline mode lets teams adopt `dep-brain` in existing repositories without failing CI for known dependency debt.
+
+```bash
+dep-brain analyze --json --out depbrain-baseline.json
+dep-brain analyze --baseline depbrain-baseline.json --min-score 90 --fail-on-risks
+```
+
+The baseline file is a normal JSON analysis report. Matching entries in `duplicates`, `unused`, `outdated`, and `risks` are ignored before score, policy, suggestions, and top issues are calculated.
+
+## GitHub Action
+
+```yaml
+name: Dependency Brain
+
+on:
+  pull_request:
+
+jobs:
+  dep-brain:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: prakashu51/dep-brain@v1
+        with:
+          format: sarif
+          out: depbrain.sarif
+          min-score: 85
+          fail-on-risks: "true"
+```
+
 ## Config File
 
 Create a `depbrain.config.json` file in the project root:
@@ -210,6 +254,7 @@ Examples:
 dep-brain analyze --fail-on-unused
 dep-brain analyze --min-score 85 --fail-on-risks
 dep-brain analyze --config depbrain.config.json
+dep-brain analyze --baseline depbrain-baseline.json --fail-on-unused
 ```
 
 ## Config Debugging
@@ -256,7 +301,7 @@ src/
 
 ## Product Direction
 
-`dep-brain` is currently in the `v0.5.x` foundation stage. The next roadmap is:
+`dep-brain` is in its `v1.0.0` production-ready CLI stage. The roadmap delivered through v1:
 
 - `v0.6`: explainability and confidence scoring
 - `v0.7`: safe removal guidance and actionable recommendations

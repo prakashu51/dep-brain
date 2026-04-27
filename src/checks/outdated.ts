@@ -12,13 +12,15 @@ export async function findOutdatedDependencies(
   options: OutdatedOptions = {}
 ): Promise<OutdatedDependency[]> {
   const resolveLatestVersion = options.resolveLatestVersion ?? getLatestVersion;
-  const combined = {
+const combined = {
     ...graph.dependencies,
     ...graph.devDependencies
   };
 
-  const results = await Promise.all(
-    Object.entries(combined).map(async ([name, current]) => {
+  const results = await mapWithConcurrency(
+    Object.entries(combined),
+    8,
+    async ([name, current]) => {
       const normalized = normalizeVersion(current);
       const latest = await resolveLatestVersion(name);
 
@@ -44,12 +46,36 @@ export async function findOutdatedDependencies(
         ],
         recommendation: buildOutdatedRecommendation(updateType)
       };
-    })
+    }
   );
 
   return results
     .filter((item): item is OutdatedDependency => item !== null)
     .sort((left, right) => left.name.localeCompare(right.name));
+}
+
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  mapper: (item: T) => Promise<R>
+): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let nextIndex = 0;
+
+  async function worker(): Promise<void> {
+    while (nextIndex < items.length) {
+      const currentIndex = nextIndex;
+      nextIndex += 1;
+      results[currentIndex] = await mapper(items[currentIndex]);
+    }
+  }
+
+  const workers = Array.from(
+    { length: Math.min(limit, items.length) },
+    () => worker()
+  );
+  await Promise.all(workers);
+  return results;
 }
 
 function buildOutdatedRecommendation(

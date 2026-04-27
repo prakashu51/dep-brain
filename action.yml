@@ -1,0 +1,116 @@
+name: Dependency Brain
+description: Run dep-brain dependency intelligence checks in GitHub Actions.
+author: dep-brain
+
+inputs:
+  path:
+    description: Project path to analyze.
+    required: false
+    default: "."
+  format:
+    description: Output format. Use console, json, md, sarif, or top.
+    required: false
+    default: "console"
+  out:
+    description: Optional path to write the report.
+    required: false
+    default: ""
+  config:
+    description: Optional path to depbrain.config.json.
+    required: false
+    default: ""
+  baseline:
+    description: Optional baseline JSON report used to ignore existing findings.
+    required: false
+    default: ""
+  min-score:
+    description: Minimum project health score required to pass.
+    required: false
+    default: ""
+  fail-on-unused:
+    description: Fail when unused dependencies are found.
+    required: false
+    default: "false"
+  fail-on-outdated:
+    description: Fail when outdated dependencies are found.
+    required: false
+    default: "false"
+  fail-on-duplicates:
+    description: Fail when duplicate dependencies are found.
+    required: false
+    default: "false"
+  fail-on-risks:
+    description: Fail when risky dependencies are found.
+    required: false
+    default: "false"
+
+runs:
+  using: composite
+  steps:
+    - name: Run dep-brain
+      shell: bash
+      env:
+        INPUT_PATH: ${{ inputs.path }}
+        INPUT_FORMAT: ${{ inputs.format }}
+        INPUT_OUT: ${{ inputs.out }}
+        INPUT_CONFIG: ${{ inputs.config }}
+        INPUT_BASELINE: ${{ inputs.baseline }}
+        INPUT_MIN_SCORE: ${{ inputs.min-score }}
+        INPUT_FAIL_ON_UNUSED: ${{ inputs.fail-on-unused }}
+        INPUT_FAIL_ON_OUTDATED: ${{ inputs.fail-on-outdated }}
+        INPUT_FAIL_ON_DUPLICATES: ${{ inputs.fail-on-duplicates }}
+        INPUT_FAIL_ON_RISKS: ${{ inputs.fail-on-risks }}
+      run: |
+        set -euo pipefail
+
+        args=("analyze" "$INPUT_PATH")
+
+        case "$INPUT_FORMAT" in
+          json) args+=("--json") ;;
+          md) args+=("--md") ;;
+          sarif) args+=("--sarif") ;;
+          top) args+=("--top") ;;
+          console) ;;
+          *)
+            echo "Unsupported format: $INPUT_FORMAT" >&2
+            exit 1
+            ;;
+        esac
+
+        if [ -n "$INPUT_OUT" ]; then
+          args+=("--out" "$INPUT_OUT")
+        fi
+
+        if [ -n "$INPUT_CONFIG" ]; then
+          args+=("--config" "$INPUT_CONFIG")
+        fi
+
+        if [ -n "$INPUT_BASELINE" ]; then
+          args+=("--baseline" "$INPUT_BASELINE")
+        fi
+
+        if [ -n "$INPUT_MIN_SCORE" ]; then
+          args+=("--min-score" "$INPUT_MIN_SCORE")
+        fi
+
+        if [ "$INPUT_FAIL_ON_UNUSED" = "true" ]; then
+          args+=("--fail-on-unused")
+        fi
+
+        if [ "$INPUT_FAIL_ON_OUTDATED" = "true" ]; then
+          args+=("--fail-on-outdated")
+        fi
+
+        if [ "$INPUT_FAIL_ON_DUPLICATES" = "true" ]; then
+          args+=("--fail-on-duplicates")
+        fi
+
+        if [ "$INPUT_FAIL_ON_RISKS" = "true" ]; then
+          args+=("--fail-on-risks")
+        fi
+
+        node "$GITHUB_ACTION_PATH/dist/cli.js" "${args[@]}"
+
+branding:
+  icon: activity
+  color: blue

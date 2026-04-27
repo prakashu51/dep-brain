@@ -20,6 +20,14 @@ export interface AnalysisOptions {
   rootDir?: string;
   configPath?: string;
   config?: DepBrainConfigOverrides;
+  baseline?: DepBrainBaseline;
+}
+
+export interface DepBrainBaseline {
+  duplicates?: Array<Partial<Pick<DuplicateDependency, "name">>>;
+  unused?: Array<Partial<Pick<UnusedDependency, "name" | "section" | "package">>>;
+  outdated?: Array<Partial<Pick<OutdatedDependency, "name" | "current" | "latest" | "package">>>;
+  risks?: Array<Partial<Pick<RiskDependency, "name" | "package">>>;
 }
 
 export interface DuplicateInstance {
@@ -179,7 +187,9 @@ export async function analyzeProject(
   const workspaces = await findWorkspacePackages(rootDir);
 
   if (workspaces.length === 0) {
-    return analyzeSingleProject(rootDir, config);
+    return analyzeSingleProject(rootDir, config, {
+      baseline: options.baseline
+    });
   }
 
   const rootGraph = await buildDependencyGraph(rootDir);
@@ -211,18 +221,28 @@ export async function analyzeProject(
     workspaceGraphs
   );
 
-  const unused = packages.flatMap((pkg) =>
+  const rawUnused = packages.flatMap((pkg) =>
     pkg.unused.map((item) => ({ ...item, package: pkg.name }))
   );
-  const outdated = packages.flatMap((pkg) =>
+  const rawOutdated = packages.flatMap((pkg) =>
     pkg.outdated.map((item) => ({ ...item, package: pkg.name }))
   );
-  const risks = packages.flatMap((pkg) =>
+  const rawRisks = packages.flatMap((pkg) =>
     pkg.risks.map((item) => ({ ...item, package: pkg.name }))
   );
+  const baselineFiltered = filterBaselineFindings({
+    duplicates: attributedDuplicates,
+    unused: rawUnused,
+    outdated: rawOutdated,
+    risks: rawRisks
+  }, options.baseline);
+  const activeDuplicates = baselineFiltered.duplicates;
+  const unused = baselineFiltered.unused;
+  const outdated = baselineFiltered.outdated;
+  const risks = baselineFiltered.risks;
 
   const score = calculateHealthScore({
-    duplicates: duplicates.length,
+    duplicates: activeDuplicates.length,
     unused: unused.length,
     outdated: outdated.length,
     risks: risks.length,
@@ -234,7 +254,7 @@ export async function analyzeProject(
 
   const scoreBreakdown = buildScoreBreakdown(
     {
-      duplicates: duplicates.length,
+      duplicates: activeDuplicates.length,
       unused: unused.length,
       outdated: outdated.length,
       risks: risks.length
@@ -243,15 +263,20 @@ export async function analyzeProject(
   );
 
   const suggestions = [
-    ...packages.flatMap((pkg) =>
-      pkg.suggestions.map((suggestion) => `[${pkg.name}] ${suggestion}`)
+    ...unused.map((item) => `Remove ${item.name} from ${item.section}`),
+    ...activeDuplicates.map(
+      (item) => `Consider consolidating ${item.name} to one version`
+    ),
+    ...outdated.map(
+      (item) =>
+        `Review ${item.name}: ${item.current} -> ${item.latest} (${item.updateType})`
     )
   ].slice(0, config.report.maxSuggestions);
 
   const policy = evaluatePolicy(
     {
       score,
-      duplicates: attributedDuplicates.length,
+      duplicates: activeDuplicates.length,
       unused: unused.length,
       outdated: outdated.length,
       risks: risks.length
@@ -266,18 +291,18 @@ export async function analyzeProject(
     scoreBreakdown,
     policy,
     ownershipSummary: buildOwnershipSummary({
-      duplicates: attributedDuplicates,
+      duplicates: activeDuplicates,
       unused,
       outdated,
       risks
     }),
-    duplicates: attributedDuplicates,
+    duplicates: activeDuplicates,
     unused,
     outdated,
     risks,
     suggestions,
     topIssues: buildTopIssues({
-      duplicates: attributedDuplicates,
+      duplicates: activeDuplicates,
       unused,
       outdated,
       risks
@@ -379,7 +404,7 @@ function evaluatePolicy(
 async function analyzeSingleProject(
   rootDir: string,
   config: DepBrainConfig,
-  options: { packageName?: string } = {}
+  options: { packageName?: string; baseline?: DepBrainBaseline } = {}
 ): Promise<AnalysisResult> {
   const context = await buildAnalysisContext(rootDir, config);
   const results = await runChecks(context);
@@ -389,49 +414,6 @@ async function analyzeSingleProject(
   const unused = mapUnusedIssues(issueGroups.unused);
   const outdated = mapOutdatedIssues(issueGroups.outdated);
   const risks = mapRiskIssues(issueGroups.risks);
-
-  const score = calculateHealthScore({
-    duplicates: duplicates.length,
-    unused: unused.length,
-    outdated: outdated.length,
-    risks: risks.length,
-    duplicateWeight: config.scoring.duplicateWeight,
-    outdatedWeight: config.scoring.outdatedWeight,
-    unusedWeight: config.scoring.unusedWeight,
-    riskWeight: config.scoring.riskWeight
-  });
-
-  const scoreBreakdown = buildScoreBreakdown(
-    {
-      duplicates: duplicates.length,
-      unused: unused.length,
-      outdated: outdated.length,
-      risks: risks.length
-    },
-    config
-  );
-
-  const suggestions = [
-    ...unused.map((item) => `Remove ${item.name} from ${item.section}`),
-    ...duplicates.map(
-      (item) => `Consider consolidating ${item.name} to one version`
-    ),
-    ...outdated.map(
-      (item) =>
-        `Review ${item.name}: ${item.current} -> ${item.latest} (${item.updateType})`
-    )
-  ].slice(0, config.report.maxSuggestions);
-
-  const policy = evaluatePolicy(
-    {
-      score,
-      duplicates: duplicates.length,
-      unused: unused.length,
-      outdated: outdated.length,
-      risks: risks.length
-    },
-    config
-  );
 
   const scopedUnused =
     options.packageName && options.packageName.trim().length > 0
@@ -446,6 +428,56 @@ async function analyzeSingleProject(
       ? risks.map((item) => ({ ...item, package: options.packageName }))
       : risks;
 
+  const baselineFiltered = filterBaselineFindings({
+    duplicates,
+    unused: scopedUnused,
+    outdated: scopedOutdated,
+    risks: scopedRisks
+  }, options.baseline);
+
+  const score = calculateHealthScore({
+    duplicates: baselineFiltered.duplicates.length,
+    unused: baselineFiltered.unused.length,
+    outdated: baselineFiltered.outdated.length,
+    risks: baselineFiltered.risks.length,
+    duplicateWeight: config.scoring.duplicateWeight,
+    outdatedWeight: config.scoring.outdatedWeight,
+    unusedWeight: config.scoring.unusedWeight,
+    riskWeight: config.scoring.riskWeight
+  });
+
+  const scoreBreakdown = buildScoreBreakdown(
+    {
+      duplicates: baselineFiltered.duplicates.length,
+      unused: baselineFiltered.unused.length,
+      outdated: baselineFiltered.outdated.length,
+      risks: baselineFiltered.risks.length
+    },
+    config
+  );
+
+  const suggestions = [
+    ...baselineFiltered.unused.map((item) => `Remove ${item.name} from ${item.section}`),
+    ...baselineFiltered.duplicates.map(
+      (item) => `Consider consolidating ${item.name} to one version`
+    ),
+    ...baselineFiltered.outdated.map(
+      (item) =>
+        `Review ${item.name}: ${item.current} -> ${item.latest} (${item.updateType})`
+    )
+  ].slice(0, config.report.maxSuggestions);
+
+  const policy = evaluatePolicy(
+    {
+      score,
+      duplicates: baselineFiltered.duplicates.length,
+      unused: baselineFiltered.unused.length,
+      outdated: baselineFiltered.outdated.length,
+      risks: baselineFiltered.risks.length
+    },
+    config
+  );
+
   return {
     outputVersion: OUTPUT_VERSION,
     rootDir,
@@ -453,21 +485,21 @@ async function analyzeSingleProject(
     scoreBreakdown,
     policy,
     ownershipSummary: buildOwnershipSummary({
-      duplicates,
-      unused: scopedUnused,
-      outdated: scopedOutdated,
-      risks: scopedRisks
+      duplicates: baselineFiltered.duplicates,
+      unused: baselineFiltered.unused,
+      outdated: baselineFiltered.outdated,
+      risks: baselineFiltered.risks
     }),
-    duplicates,
-    unused: scopedUnused,
-    outdated: scopedOutdated,
-    risks: scopedRisks,
+    duplicates: baselineFiltered.duplicates,
+    unused: baselineFiltered.unused,
+    outdated: baselineFiltered.outdated,
+    risks: baselineFiltered.risks,
     suggestions,
     topIssues: buildTopIssues({
-      duplicates,
-      unused: scopedUnused,
-      outdated: scopedOutdated,
-      risks: scopedRisks
+      duplicates: baselineFiltered.duplicates,
+      unused: baselineFiltered.unused,
+      outdated: baselineFiltered.outdated,
+      risks: baselineFiltered.risks
     }),
     config
   };
@@ -831,6 +863,65 @@ function buildOwnershipSummary(input: {
     outdated: input.outdated.length,
     risks: input.risks.length
   };
+}
+
+function filterBaselineFindings(
+  findings: {
+    duplicates: DuplicateDependency[];
+    unused: UnusedDependency[];
+    outdated: OutdatedDependency[];
+    risks: RiskDependency[];
+  },
+  baseline: DepBrainBaseline | undefined
+): {
+  duplicates: DuplicateDependency[];
+  unused: UnusedDependency[];
+  outdated: OutdatedDependency[];
+  risks: RiskDependency[];
+} {
+  if (!baseline) {
+    return findings;
+  }
+
+  return {
+    duplicates: findings.duplicates.filter(
+      (item) =>
+        !(baseline.duplicates ?? []).some(
+          (entry) => entry.name === item.name
+        )
+    ),
+    unused: findings.unused.filter(
+      (item) =>
+        !(baseline.unused ?? []).some(
+          (entry) =>
+            entry.name === item.name &&
+            optionalMatches(entry.section, item.section) &&
+            optionalMatches(entry.package, item.package)
+        )
+    ),
+    outdated: findings.outdated.filter(
+      (item) =>
+        !(baseline.outdated ?? []).some(
+          (entry) =>
+            entry.name === item.name &&
+            optionalMatches(entry.current, item.current) &&
+            optionalMatches(entry.latest, item.latest) &&
+            optionalMatches(entry.package, item.package)
+        )
+    ),
+    risks: findings.risks.filter(
+      (item) =>
+        !(baseline.risks ?? []).some(
+          (entry) =>
+            entry.name === item.name &&
+            optionalMatches(entry.package, item.package)
+        )
+    )
+  };
+}
+
+function optionalMatches<T>(expected: T | undefined, actual: T | undefined): boolean {
+  return expected === undefined || expected === actual;
 }
 
 function normalizeConfidence(value: number | undefined): number {
