@@ -8,6 +8,22 @@ const CONFIG_FILE_PATTERN =
   /(^|[\\/])(vite|vitest|jest|eslint|prettier|rollup|webpack|babel|tsup|eslint\.config|commitlint|playwright|storybook|tailwind|postcss)\.config\.(c|m)?(t|j)s$/;
 const TEST_FILE_PATTERN = /(^|[\\/])(__tests__|test|tests|spec|specs)([\\/]|$)|\.(test|spec)\.(c|m)?(t|j)sx?$/;
 const RUNTIME_DIR_PATTERN = /(^|[\\/])(src|app|lib|server|client|pages|components)([\\/]|$)/;
+const SCRIPT_BINARY_PACKAGE_MAP: Record<string, string[]> = {
+  eslint: [
+    "eslint",
+    "@typescript-eslint/eslint-plugin",
+    "@typescript-eslint/parser",
+    "eslint-config-prettier",
+    "eslint-plugin-prettier"
+  ],
+  jest: ["jest", "ts-jest"],
+  nest: ["@nestjs/cli", "@nestjs/schematics"],
+  prettier: ["prettier"],
+  ts_jest: ["ts-jest"],
+  ts_loader: ["ts-loader"],
+  ts_node: ["ts-node", "tsconfig-paths"],
+  webpack: ["webpack", "ts-loader"]
+};
 
 export async function findUnusedDependencies(
   rootDir: string,
@@ -42,6 +58,9 @@ export async function findUnusedDependencies(
 
   for (const referencedBinary of extractScriptReferences(graph.scripts)) {
     devUsed.add(referencedBinary);
+    for (const packageName of inferPackagesFromScriptReference(referencedBinary)) {
+      devUsed.add(packageName);
+    }
   }
 
   const hasTypeScriptSources = projectFiles.some((filePath) => /\.(c|m)?tsx?$/.test(filePath));
@@ -51,6 +70,9 @@ export async function findUnusedDependencies(
 
   const unusedDependencies = Object.keys(graph.dependencies)
     .filter((name) => !runtimeUsed.has(name))
+    .filter((name) =>
+      !isImplicitlyUsedRuntimeDependency(name, graph, runtimeUsed)
+    )
     .map((name) => buildUnusedDependency(name, "dependencies"));
 
   const unusedDevDependencies = Object.keys(graph.devDependencies)
@@ -175,6 +197,39 @@ function normalizeScriptToken(token: string): string | null {
   }
 
   return token.replace(/\.cmd$/i, "");
+}
+
+function inferPackagesFromScriptReference(reference: string): string[] {
+  const normalized = reference.replace(/[-/]/g, "_");
+  return SCRIPT_BINARY_PACKAGE_MAP[normalized] ?? [];
+}
+
+function isImplicitlyUsedRuntimeDependency(
+  name: string,
+  graph: DependencyGraph,
+  runtimeUsed: Set<string>
+): boolean {
+  if (
+    name === "@nestjs/platform-express" &&
+    (runtimeUsed.has("@nestjs/core") || Boolean(graph.dependencies["@nestjs/core"]))
+  ) {
+    return true;
+  }
+
+  if (
+    name === "reflect-metadata" &&
+    (hasNestDependency(graph.dependencies) || hasNestDependency(graph.devDependencies))
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+function hasNestDependency(dependencies: Record<string, string>): boolean {
+  return Object.keys(dependencies).some((dependency) =>
+    dependency.startsWith("@nestjs/")
+  );
 }
 
 function isImplicitlyUsedDevDependency(

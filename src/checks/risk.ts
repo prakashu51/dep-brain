@@ -42,7 +42,7 @@ export async function findRiskDependencies(
           : "unknown";
       const assessment = assessRisk(metadata, dependencyType);
 
-      if (assessment.reasons.length === 0) {
+      if (!shouldReportRisk(assessment.trustScore, dependencyType)) {
         return null;
       }
 
@@ -166,7 +166,11 @@ function assessRisk(
     weight += 2;
   }
 
-  if (metadata.recentReleaseCount !== null && metadata.recentReleaseCount === 0) {
+  if (
+    reasons.length > 0 &&
+    metadata.recentReleaseCount !== null &&
+    metadata.recentReleaseCount === 0
+  ) {
     reasons.push("No releases published in the last 30 days");
     reasonCodes.push("no_recent_release");
     weight += 1;
@@ -197,6 +201,21 @@ function assessRisk(
       dependencyType
     }
   };
+}
+
+function shouldReportRisk(
+  trustScore: TrustScore,
+  dependencyType: RiskFactors["dependencyType"]
+): boolean {
+  if (trustScore === "high") {
+    return false;
+  }
+
+  if (dependencyType === "devDependencies" && trustScore !== "low") {
+    return false;
+  }
+
+  return true;
 }
 
 function buildRiskRecommendation(
