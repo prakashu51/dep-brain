@@ -178,6 +178,77 @@ const tests = [
     }
   },
   {
+    name: "risk detection suppresses weak and dev-only signals",
+    run: async () => {
+      const risks = await findRiskDependencies(
+        {
+          rootDir: "D:/fixture",
+          packageJsonPath: "D:/fixture/package.json",
+          dependencies: {
+            axios: "^1.0.0",
+            stale: "^1.0.0"
+          },
+          devDependencies: {
+            "@types/node": "^20.0.0",
+            "risky-dev": "^1.0.0"
+          },
+          scripts: {},
+          lockPackages: {}
+        },
+        {
+          resolvePackageMetadata: async (name) => {
+            const metadata = {
+              axios: {
+                latestVersion: "1.0.0",
+                repository: "https://github.com/axios/axios",
+                downloads: 1000000,
+                daysSincePublish: 2,
+                maintainersCount: 1,
+                versionCount: 100,
+                recentReleaseCount: 1
+              },
+              stale: {
+                latestVersion: "1.0.0",
+                repository: "https://github.com/example/stale",
+                downloads: 100000,
+                daysSincePublish: 900,
+                maintainersCount: 2,
+                versionCount: 20,
+                recentReleaseCount: 0
+              },
+              "@types/node": {
+                latestVersion: "20.0.0",
+                repository: "https://github.com/DefinitelyTyped/DefinitelyTyped",
+                downloads: null,
+                daysSincePublish: 10,
+                maintainersCount: 1,
+                versionCount: 1000,
+                recentReleaseCount: 4
+              },
+              "risky-dev": {
+                latestVersion: "1.0.0",
+                repository: null,
+                downloads: 10,
+                daysSincePublish: 900,
+                maintainersCount: 1,
+                versionCount: 1,
+                recentReleaseCount: 0
+              }
+            };
+            return metadata[name] ?? null;
+          }
+        }
+      );
+
+      assert.deepEqual(
+        risks.map((item) => item.name),
+        ["risky-dev", "stale"]
+      );
+      assert.equal(risks.find((item) => item.name === "risky-dev")?.trustScore, "low");
+      assert.equal(risks.find((item) => item.name === "stale")?.trustScore, "medium");
+    }
+  },
+  {
     name: "unused detection respects scripts and TypeScript helpers",
     run: async () => {
       const fixtureRoot = path.join(__dirname, "fixtures", "unused-project");
@@ -197,6 +268,54 @@ const tests = [
         ]
       );
       assert.ok(unused.every((item) => item.reasonCodes.length > 0));
+    }
+  },
+  {
+    name: "unused detection understands NestJS and tool binaries",
+    run: async () => {
+      const unused = await findUnusedDependencies(
+        "D:/fixture",
+        {
+          rootDir: "D:/fixture",
+          packageJsonPath: "D:/fixture/package.json",
+          dependencies: {
+            "@nestjs/core": "^11.0.0",
+            "@nestjs/platform-express": "^11.0.0",
+            "reflect-metadata": "^0.2.0",
+            "unused-runtime": "^1.0.0"
+          },
+          devDependencies: {
+            "@nestjs/cli": "^11.0.0",
+            "@nestjs/schematics": "^11.0.0",
+            "@typescript-eslint/eslint-plugin": "^8.0.0",
+            "@typescript-eslint/parser": "^8.0.0",
+            "eslint-config-prettier": "^10.0.0",
+            "ts-jest": "^29.0.0",
+            "ts-node": "^10.0.0",
+            "tsconfig-paths": "^4.0.0",
+            "unused-tool": "^1.0.0"
+          },
+          scripts: {
+            start: "nest start",
+            lint: "eslint src --ext .ts",
+            test: "jest",
+            seed: "ts-node -r tsconfig-paths/register scripts/seed.ts"
+          },
+          lockPackages: {}
+        },
+        [
+          {
+            path: "D:/fixture/src/main.ts",
+            content: "import { NestFactory } from '@nestjs/core';"
+          }
+        ],
+        { hasTypeScriptConfig: true }
+      );
+
+      assert.deepEqual(
+        unused.map((item) => item.name),
+        ["unused-runtime", "unused-tool"]
+      );
     }
   },
   {

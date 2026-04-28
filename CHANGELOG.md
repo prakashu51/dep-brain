@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## 1.0.1
+
+- Reduced NestJS unused false positives for implicit runtime packages such as `@nestjs/platform-express` and `reflect-metadata`.
+- Added script binary inference for common tooling packages used through `nest`, `eslint`, `jest`, `ts-node`, and related commands.
+- Reduced risk-report noise by suppressing high-trust findings and medium-trust dev dependency findings.
+- Stopped treating "no releases published in the last 30 days" as a standalone risk signal.
+- Added regression tests for NestJS/tooling unused detection and weak risk-signal suppression.
+
 ## 1.0.0
 
 - Stable v1 CLI and library release for explainable dependency intelligence.
