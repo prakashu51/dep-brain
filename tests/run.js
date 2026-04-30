@@ -31,6 +31,7 @@ const tests = [
         packageJsonPath: "D:/fixture/package.json",
         dependencies: {},
         devDependencies: {},
+        overrides: {},
         scripts: {},
         lockPackages: {
           react: [
@@ -124,6 +125,7 @@ const tests = [
           devDependencies: {
             gamma: "3.0.1"
           },
+          overrides: {},
           scripts: {},
           lockPackages: {}
         },
@@ -154,6 +156,7 @@ const tests = [
             risky: "^1.0.0"
           },
           devDependencies: {},
+          overrides: {},
           scripts: {},
           lockPackages: {}
         },
@@ -192,6 +195,7 @@ const tests = [
             "@types/node": "^20.0.0",
             "risky-dev": "^1.0.0"
           },
+          overrides: {},
           scripts: {},
           lockPackages: {}
         },
@@ -282,6 +286,7 @@ const tests = [
             "@nestjs/core": "^11.0.0",
             "@nestjs/platform-express": "^11.0.0",
             "reflect-metadata": "^0.2.0",
+            "fast-xml-parser": "5.5.8",
             "unused-runtime": "^1.0.0"
           },
           devDependencies: {
@@ -295,11 +300,15 @@ const tests = [
             "tsconfig-paths": "^4.0.0",
             "unused-tool": "^1.0.0"
           },
+          overrides: {
+            "fast-xml-parser": "5.5.8"
+          },
           scripts: {
             start: "nest start",
             lint: "eslint src --ext .ts",
             test: "jest",
-            seed: "ts-node -r tsconfig-paths/register scripts/seed.ts"
+            build: "nest build",
+            debug: "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand"
           },
           lockPackages: {}
         },
