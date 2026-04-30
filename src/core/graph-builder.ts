@@ -13,6 +13,7 @@ export interface DependencyGraph {
   lockfilePath?: string;
   dependencies: Record<string, string>;
   devDependencies: Record<string, string>;
+  overrides: Record<string, unknown>;
   scripts: Record<string, string>;
   lockPackages: Record<string, LockPackageInstance[]>;
 }
@@ -28,6 +29,7 @@ export async function buildDependencyGraph(
   const packageJson = await readJsonFile<{
     dependencies?: Record<string, string>;
     devDependencies?: Record<string, string>;
+    overrides?: Record<string, unknown>;
     scripts?: Record<string, string>;
   }>(packageJsonPath);
 
@@ -76,6 +78,7 @@ export async function buildDependencyGraph(
       lockfilePath: fallbackLockfile.lockfilePath,
       dependencies: packageJson.dependencies ?? {},
       devDependencies: packageJson.devDependencies ?? {},
+      overrides: packageJson.overrides ?? {},
       scripts: packageJson.scripts ?? {},
       lockPackages: fallbackLockfile.lockPackages
     };
@@ -87,6 +90,7 @@ export async function buildDependencyGraph(
     lockfilePath,
     dependencies: packageJson.dependencies ?? {},
     devDependencies: packageJson.devDependencies ?? {},
+    overrides: packageJson.overrides ?? {},
     scripts: packageJson.scripts ?? {},
     lockPackages: Object.fromEntries(
       Array.from(lockPackages.entries()).map(([name, instances]) => [

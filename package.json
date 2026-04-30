@@ -1,6 +1,6 @@
 {
   "name": "dep-brain",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "CLI and library for explainable dependency intelligence",
   "type": "module",
   "main": "dist/index.js",

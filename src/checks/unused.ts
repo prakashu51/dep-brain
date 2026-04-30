@@ -22,6 +22,8 @@ const SCRIPT_BINARY_PACKAGE_MAP: Record<string, string[]> = {
   ts_jest: ["ts-jest"],
   ts_loader: ["ts-loader"],
   ts_node: ["ts-node", "tsconfig-paths"],
+  ts_node_register: ["ts-node", "tsconfig-paths"],
+  tsconfig_paths_register: ["tsconfig-paths"],
   webpack: ["webpack", "ts-loader"]
 };
 
@@ -66,10 +68,12 @@ export async function findUnusedDependencies(
   const hasTypeScriptSources = projectFiles.some((filePath) => /\.(c|m)?tsx?$/.test(filePath));
   if (options.hasTypeScriptConfig) {
     devUsed.add("typescript");
+    addImplicitTypeScriptTooling(graph, devUsed);
   }
 
   const unusedDependencies = Object.keys(graph.dependencies)
     .filter((name) => !runtimeUsed.has(name))
+    .filter((name) => !isPackageManagerOverride(name, graph))
     .filter((name) =>
       !isImplicitlyUsedRuntimeDependency(name, graph, runtimeUsed)
     )
@@ -202,6 +206,25 @@ function normalizeScriptToken(token: string): string | null {
 function inferPackagesFromScriptReference(reference: string): string[] {
   const normalized = reference.replace(/[-/]/g, "_");
   return SCRIPT_BINARY_PACKAGE_MAP[normalized] ?? [];
+}
+
+function addImplicitTypeScriptTooling(
+  graph: DependencyGraph,
+  devUsed: Set<string>
+): void {
+  if (hasNestDependency(graph.dependencies) || hasNestDependency(graph.devDependencies)) {
+    devUsed.add("source-map-support");
+    devUsed.add("ts-loader");
+    devUsed.add("ts-node");
+    devUsed.add("tsconfig-paths");
+  }
+}
+
+function isPackageManagerOverride(
+  name: string,
+  graph: DependencyGraph
+): boolean {
+  return Object.prototype.hasOwnProperty.call(graph.overrides, name);
 }
 
 function isImplicitlyUsedRuntimeDependency(
