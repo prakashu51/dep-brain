@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## 1.1.0
+
+- Added `--focus` modes for targeted duplicate, unused, outdated, risk, and health analysis.
+- Added `--ci` for low-noise CI defaults focused on duplicate and runtime risk enforcement.
+- Added `dep-brain init` to generate a starter `depbrain.config.json`.
+- Introduced capped health score deductions so large outdated/risk counts do not automatically collapse project health to `0/100`.
+- Added GitHub Action inputs for `focus` and `ci`.
+- Added regression coverage for focused analysis and capped scoring.
+
 ## 1.0.2
 
 - Treated npm `overrides` entries as intentional version pins so direct override packages are not flagged as unused.

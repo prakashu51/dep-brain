@@ -12,7 +12,7 @@ import {
 } from "../utils/config.js";
 import { findWorkspacePackages } from "../utils/workspaces.js";
 import { buildDependencyGraph } from "./graph-builder.js";
-import { calculateHealthScore } from "./scorer.js";
+import { calculateHealthScore, calculateScoreDeductions } from "./scorer.js";
 import { buildAnalysisContext } from "./context.js";
 import type { CheckResult, Issue } from "./types.js";
 
@@ -21,7 +21,10 @@ export interface AnalysisOptions {
   configPath?: string;
   config?: DepBrainConfigOverrides;
   baseline?: DepBrainBaseline;
+  focus?: AnalysisFocus;
 }
+
+export type AnalysisFocus = "all" | "duplicates" | "unused" | "outdated" | "risks" | "health";
 
 export interface DepBrainBaseline {
   duplicates?: Array<Partial<Pick<DuplicateDependency, "name">>>;
@@ -184,27 +187,32 @@ export async function analyzeProject(
   const rootDir = path.resolve(options.rootDir ?? process.cwd());
   const loadedConfig = await loadDepBrainConfig(rootDir, options.configPath);
   const config = mergeConfig(loadedConfig, options.config);
+  const focus = options.focus ?? "all";
   const workspaces = await findWorkspacePackages(rootDir);
 
   if (workspaces.length === 0) {
     return analyzeSingleProject(rootDir, config, {
-      baseline: options.baseline
+      baseline: options.baseline,
+      focus
     });
   }
 
   const rootGraph = await buildDependencyGraph(rootDir);
-  const duplicateCheck = await runDuplicateCheck(rootGraph);
-  const filteredDuplicateIssues = filterIssues(
-    duplicateCheck.issues,
-    "duplicates",
-    config
-  );
-  const duplicates = mapDuplicateIssues(filteredDuplicateIssues);
+  const duplicates = shouldRunCheck("duplicate", focus)
+    ? mapDuplicateIssues(
+        filterIssues(
+          (await runDuplicateCheck(rootGraph)).issues,
+          "duplicates",
+          config
+        )
+      )
+    : [];
 
   const packages: PackageAnalysisResult[] = [];
   for (const workspace of workspaces) {
     const result = await analyzeSingleProject(workspace.rootDir, config, {
-      packageName: workspace.name
+      packageName: workspace.name,
+      focus
     });
     packages.push({ ...result, name: workspace.name });
   }
@@ -404,10 +412,10 @@ function evaluatePolicy(
 async function analyzeSingleProject(
   rootDir: string,
   config: DepBrainConfig,
-  options: { packageName?: string; baseline?: DepBrainBaseline } = {}
+  options: { packageName?: string; baseline?: DepBrainBaseline; focus?: AnalysisFocus } = {}
 ): Promise<AnalysisResult> {
   const context = await buildAnalysisContext(rootDir, config);
-  const results = await runChecks(context);
+  const results = await runChecks(context, options.focus ?? "all");
   const issueGroups = normalizeIssues(results, config);
 
   const duplicates = mapDuplicateIssues(issueGroups.duplicates);
@@ -535,7 +543,7 @@ async function runChecks(context: {
   projectFiles: string[];
   fileEntries: { path: string; content: string }[];
   hasTypeScriptConfig: boolean;
-}): Promise<CheckResult[]> {
+}, focus: AnalysisFocus): Promise<CheckResult[]> {
   const checks = [
     {
       name: "duplicate",
@@ -557,10 +565,25 @@ async function runChecks(context: {
 
   const results: CheckResult[] = [];
   for (const check of checks) {
-    results.push(await check.run());
+    if (shouldRunCheck(check.name, focus)) {
+      results.push(await check.run());
+    }
   }
 
   return results;
+}
+
+function shouldRunCheck(checkName: string, focus: AnalysisFocus): boolean {
+  if (focus === "all" || focus === "health") {
+    return true;
+  }
+
+  return (
+    (focus === "duplicates" && checkName === "duplicate") ||
+    (focus === "unused" && checkName === "unused") ||
+    (focus === "outdated" && checkName === "outdated") ||
+    (focus === "risks" && checkName === "risk")
+  );
 }
 
 function normalizeIssues(results: CheckResult[], config: DepBrainConfig): {
@@ -1015,12 +1038,23 @@ function buildScoreBreakdown(
   },
   config: DepBrainConfig
 ): ScoreBreakdown {
+  const deductions = calculateScoreDeductions({
+    duplicates: counts.duplicates,
+    outdated: counts.outdated,
+    unused: counts.unused,
+    risks: counts.risks,
+    duplicateWeight: config.scoring.duplicateWeight,
+    outdatedWeight: config.scoring.outdatedWeight,
+    unusedWeight: config.scoring.unusedWeight,
+    riskWeight: config.scoring.riskWeight
+  });
+
   return {
-    baseScore: 100,
-    duplicates: counts.duplicates * config.scoring.duplicateWeight,
-    outdated: counts.outdated * config.scoring.outdatedWeight,
-    unused: counts.unused * config.scoring.unusedWeight,
-    risks: counts.risks * config.scoring.riskWeight,
+    baseScore: deductions.baseScore,
+    duplicates: deductions.duplicates,
+    outdated: deductions.outdated,
+    unused: deductions.unused,
+    risks: deductions.risks,
     weights: {
       duplicateWeight: config.scoring.duplicateWeight,
       outdatedWeight: config.scoring.outdatedWeight,

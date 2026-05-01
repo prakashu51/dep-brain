@@ -23,6 +23,14 @@ inputs:
     description: Optional baseline JSON report used to ignore existing findings.
     required: false
     default: ""
+  focus:
+    description: Analysis focus. Use all, health, duplicates, unused, outdated, or risks.
+    required: false
+    default: "all"
+  ci:
+    description: Apply low-noise CI defaults.
+    required: false
+    default: "false"
   min-score:
     description: Minimum project health score required to pass.
     required: false
@@ -55,6 +63,8 @@ runs:
         INPUT_OUT: ${{ inputs.out }}
         INPUT_CONFIG: ${{ inputs.config }}
         INPUT_BASELINE: ${{ inputs.baseline }}
+        INPUT_FOCUS: ${{ inputs.focus }}
+        INPUT_CI: ${{ inputs.ci }}
         INPUT_MIN_SCORE: ${{ inputs.min-score }}
         INPUT_FAIL_ON_UNUSED: ${{ inputs.fail-on-unused }}
         INPUT_FAIL_ON_OUTDATED: ${{ inputs.fail-on-outdated }}
@@ -87,6 +97,14 @@ runs:
 
         if [ -n "$INPUT_BASELINE" ]; then
           args+=("--baseline" "$INPUT_BASELINE")
+        fi
+
+        if [ "$INPUT_FOCUS" != "all" ]; then
+          args+=("--focus" "$INPUT_FOCUS")
+        fi
+
+        if [ "$INPUT_CI" = "true" ]; then
+          args+=("--ci")
         fi
 
         if [ -n "$INPUT_MIN_SCORE" ]; then

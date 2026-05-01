@@ -50,6 +50,9 @@ The long-term goal is not just to list problems, but to answer:
 - SARIF output via `--sarif`
 - Ranked top issues via `--top`
 - Baseline mode via `--baseline`
+- Focused analysis via `--focus`
+- Low-noise CI defaults via `--ci`
+- Starter config generation via `dep-brain init`
 - Reusable GitHub Action via `action.yml`
 - Library entrypoint for programmatic use
 
@@ -70,10 +73,13 @@ npx dep-brain analyze ./path-to-project --fail-on-unused --json
 npx dep-brain analyze --md > depbrain.md
 npx dep-brain analyze --json --out depbrain.json
 npx dep-brain analyze --sarif --out depbrain.sarif
+npx dep-brain analyze --focus duplicates
+npx dep-brain analyze --ci
 npx dep-brain analyze --baseline depbrain-baseline.json
 npx dep-brain analyze --baseline depbrain-baseline.json --min-score 90 --fail-on-risks
 npx dep-brain report --from depbrain.json --md --out depbrain.md
 
+dep-brain init
 dep-brain config
 dep-brain config --config depbrain.config.json
 
@@ -81,6 +87,34 @@ dep-brain help
 dep-brain analyze --help
 dep-brain --version
 ```
+
+## Focus Modes
+
+Use `--focus` when you want a targeted signal instead of a full report:
+
+```bash
+dep-brain analyze --focus duplicates
+dep-brain analyze --focus health
+dep-brain analyze --focus risks
+```
+
+Supported values are `all`, `health`, `duplicates`, `unused`, `outdated`, and `risks`.
+
+## CI Preset
+
+```bash
+dep-brain analyze --ci
+```
+
+The CI preset applies low-noise defaults: a minimum score of `70`, failure on duplicates, and failure on risky dependencies.
+
+## Config Init
+
+```bash
+dep-brain init
+```
+
+Creates a starter `depbrain.config.json` with practical defaults for CI and common TypeScript/NestJS tooling.
 
 ## Workspaces
 

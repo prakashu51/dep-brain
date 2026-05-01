@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 
 import { analyzeProject } from "./core/analyzer.js";
-import type { DepBrainBaseline } from "./core/analyzer.js";
+import type { AnalysisFocus, DepBrainBaseline } from "./core/analyzer.js";
 import { renderConsoleReport } from "./reporters/console.js";
 import { renderJsonReport } from "./reporters/json.js";
 import { renderMarkdownReport } from "./reporters/markdown.js";
 import { renderSarifReport } from "./reporters/sarif.js";
-import type { DepBrainConfig, DepBrainConfigOverrides } from "./utils/config.js";
+import { defaultConfig, type DepBrainConfig, type DepBrainConfigOverrides } from "./utils/config.js";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 
@@ -109,6 +109,22 @@ async function main(): Promise<void> {
       }
     }
 
+    if (command === "init") {
+      try {
+        const outputPath = optionValues.get("--out") ?? "depbrain.config.json";
+        const resolvedOut = resolveUserPath(outputPath);
+        const config = buildStarterConfig();
+        await fs.writeFile(resolvedOut, `${JSON.stringify(config, null, 2)}\n`, "utf8");
+        console.log(`Created ${path.relative(process.cwd(), resolvedOut) || outputPath}`);
+        return;
+      } catch (error) {
+        console.error("Failed to create config.");
+        console.error(error);
+        process.exitCode = 1;
+        return;
+      }
+    }
+
     console.error(`Unknown command: ${sanitizeForLog(command)}`);
     printHelp();
     process.exitCode = 1;
@@ -128,7 +144,8 @@ async function main(): Promise<void> {
       rootDir: targetPath,
       configPath: optionValues.get("--config"),
       config: cliConfig,
-      baseline
+      baseline,
+      focus: parseFocus(optionValues.get("--focus"))
     });
 
     let output: string;
@@ -197,6 +214,12 @@ function buildCliConfig(
     policy.failOnUnused = true;
   }
 
+  if (flags.has("--ci")) {
+    policy.minScore = policy.minScore ?? 70;
+    policy.failOnDuplicates = true;
+    policy.failOnRisks = true;
+  }
+
   return {
     policy
   };
@@ -216,10 +239,11 @@ function printHelp(): void {
   console.log("");
   console.log("Usage:");
   console.log(
-    "  dep-brain analyze [path] [--json] [--md] [--sarif] [--top] [--out path] [--config path] [--baseline path] [--min-score n] [--fail-on-risks]"
+    "  dep-brain analyze [path] [--json] [--md] [--sarif] [--top] [--focus kind] [--ci] [--out path] [--config path] [--baseline path] [--min-score n] [--fail-on-risks]"
   );
   console.log("  dep-brain report --from <file> [--md] [--json] [--sarif] [--top] [--out path]");
   console.log("  dep-brain config [path] [--config path]");
+  console.log("  dep-brain init [--out depbrain.config.json]");
   console.log("  dep-brain help");
   console.log("  dep-brain --version");
   console.log("");
@@ -228,6 +252,8 @@ function printHelp(): void {
   console.log("  --md                Output Markdown report");
   console.log("  --sarif             Output SARIF format for Code Scanning");
   console.log("  --top               Output the ranked top issues only");
+  console.log("  --focus <kind>      Run all, health, duplicates, unused, outdated, or risks");
+  console.log("  --ci                Apply low-noise CI defaults");
   console.log("  --config <path>     Path to depbrain.config.json");
   console.log("  --baseline <path>   Ignore findings already present in a baseline JSON report");
   console.log("  --from <file>       Read analysis JSON from file");
@@ -239,6 +265,50 @@ function printHelp(): void {
   console.log("  --fail-on-duplicates Fail when duplicates exist");
   console.log("  --help              Show this help output");
   console.log("  --version           Show CLI version");
+}
+
+function parseFocus(value: string | undefined): AnalysisFocus {
+  if (
+    value === "duplicates" ||
+    value === "unused" ||
+    value === "outdated" ||
+    value === "risks" ||
+    value === "health" ||
+    value === "all"
+  ) {
+    return value;
+  }
+
+  return "all";
+}
+
+function buildStarterConfig(): DepBrainConfig {
+  return {
+    ...defaultConfig,
+    ignore: {
+      ...defaultConfig.ignore,
+      unused: [
+        "@nestjs/platform-express",
+        "reflect-metadata",
+        "source-map-support",
+        "ts-loader",
+        "ts-node",
+        "tsconfig-paths"
+      ]
+    },
+    policy: {
+      ...defaultConfig.policy,
+      minScore: 70,
+      failOnDuplicates: true,
+      failOnRisks: true
+    },
+    scoring: {
+      duplicateWeight: 8,
+      outdatedWeight: 1,
+      unusedWeight: 2,
+      riskWeight: 4
+    }
+  };
 }
 
 async function loadPackageVersion(): Promise<string | null> {
