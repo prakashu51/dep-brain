@@ -352,6 +352,30 @@ const tests = [
         }),
         87
       );
+      assert.equal(
+        calculateHealthScore({
+          duplicates: 0,
+          outdated: 52,
+          unused: 8,
+          risks: 9
+        }),
+        25
+      );
+    }
+  },
+  {
+    name: "focus mode limits analysis to requested checks",
+    run: async () => {
+      const fixtureRoot = path.join(__dirname, "workspace-root");
+      const result = await analyzeProject({
+        rootDir: path.join(__dirname, "fixtures", "workspace-root"),
+        focus: "duplicates"
+      });
+
+      assert.ok(result.duplicates.length > 0);
+      assert.equal(result.unused.length, 0);
+      assert.equal(result.outdated.length, 0);
+      assert.equal(result.risks.length, 0);
     }
   },
   {

@@ -1,6 +1,7 @@
 export { analyzeProject } from "./core/analyzer.js";
 export type {
   AnalysisOptions,
+  AnalysisFocus,
   AnalysisResult,
   DepBrainBaseline,
   DuplicateDependency,
