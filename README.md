@@ -238,6 +238,21 @@ Create a `depbrain.config.json` file in the project root:
   "report": {
     "maxSuggestions": 3
   },
+  "plugins": {
+    "enabled": [],
+    "paths": []
+  },
+  "risk": {
+    "transitiveBloatThreshold": 50,
+    "typosquattingDistanceThreshold": 2
+  },
+  "dashboard": {
+    "outputPath": "depbrain-dashboard.html"
+  },
+  "notifications": {
+    "slackWebhookEnv": "DEPBRAIN_SLACK_WEBHOOK_URL",
+    "discordWebhookEnv": "DEPBRAIN_DISCORD_WEBHOOK_URL"
+  },
   "scoring": {
     "duplicateWeight": 5,
     "outdatedWeight": 1,
@@ -264,6 +279,13 @@ Supported sections:
 - `policy.failOnOutdated`
 - `policy.failOnRisks`
 - `report.maxSuggestions`
+- `plugins.enabled`
+- `plugins.paths`
+- `risk.transitiveBloatThreshold`
+- `risk.typosquattingDistanceThreshold`
+- `dashboard.outputPath`
+- `notifications.slackWebhookEnv`
+- `notifications.discordWebhookEnv`
 - `scoring.duplicateWeight`
 - `scoring.outdatedWeight`
 - `scoring.unusedWeight`

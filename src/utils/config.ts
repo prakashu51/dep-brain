@@ -23,6 +23,21 @@ export interface DepBrainConfig {
   report: {
     maxSuggestions: number;
   };
+  plugins: {
+    enabled: string[];
+    paths: string[];
+  };
+  risk: {
+    transitiveBloatThreshold: number;
+    typosquattingDistanceThreshold: number;
+  };
+  dashboard: {
+    outputPath: string;
+  };
+  notifications: {
+    slackWebhookEnv: string;
+    discordWebhookEnv: string;
+  };
   scoring: {
     duplicateWeight: number;
     outdatedWeight: number;
@@ -38,6 +53,10 @@ export interface DepBrainConfigOverrides {
   ignore?: Partial<DepBrainConfig["ignore"]>;
   policy?: Partial<DepBrainConfig["policy"]>;
   report?: Partial<DepBrainConfig["report"]>;
+  plugins?: Partial<DepBrainConfig["plugins"]>;
+  risk?: Partial<DepBrainConfig["risk"]>;
+  dashboard?: Partial<DepBrainConfig["dashboard"]>;
+  notifications?: Partial<DepBrainConfig["notifications"]>;
   scoring?: Partial<DepBrainConfig["scoring"]>;
   scan?: Partial<DepBrainConfig["scan"]>;
 }
@@ -62,6 +81,21 @@ export const defaultConfig: DepBrainConfig = {
   },
   report: {
     maxSuggestions: 5
+  },
+  plugins: {
+    enabled: [],
+    paths: []
+  },
+  risk: {
+    transitiveBloatThreshold: 50,
+    typosquattingDistanceThreshold: 2
+  },
+  dashboard: {
+    outputPath: "depbrain-dashboard.html"
+  },
+  notifications: {
+    slackWebhookEnv: "DEPBRAIN_SLACK_WEBHOOK_URL",
+    discordWebhookEnv: "DEPBRAIN_DISCORD_WEBHOOK_URL"
   },
   scoring: {
     duplicateWeight: 5,
@@ -159,6 +193,42 @@ function normalizeConfig(loaded: Partial<DepBrainConfig>): DepBrainConfig {
         defaultConfig.report.maxSuggestions
       )
     },
+    plugins: {
+      enabled: normalizeStringArray(
+        loaded.plugins?.enabled,
+        defaultConfig.plugins.enabled
+      ),
+      paths: normalizeStringArray(
+        loaded.plugins?.paths,
+        defaultConfig.plugins.paths
+      )
+    },
+    risk: {
+      transitiveBloatThreshold: normalizeNumber(
+        loaded.risk?.transitiveBloatThreshold,
+        defaultConfig.risk.transitiveBloatThreshold
+      ),
+      typosquattingDistanceThreshold: normalizeNumber(
+        loaded.risk?.typosquattingDistanceThreshold,
+        defaultConfig.risk.typosquattingDistanceThreshold
+      )
+    },
+    dashboard: {
+      outputPath: normalizeString(
+        loaded.dashboard?.outputPath,
+        defaultConfig.dashboard.outputPath
+      )
+    },
+    notifications: {
+      slackWebhookEnv: normalizeString(
+        loaded.notifications?.slackWebhookEnv,
+        defaultConfig.notifications.slackWebhookEnv
+      ),
+      discordWebhookEnv: normalizeString(
+        loaded.notifications?.discordWebhookEnv,
+        defaultConfig.notifications.discordWebhookEnv
+      )
+    },
     scoring: {
       duplicateWeight: normalizeNumber(
         loaded.scoring?.duplicateWeight,
@@ -203,4 +273,8 @@ function normalizeBoolean(value: unknown, fallback: boolean): boolean {
 
 function normalizeNumber(value: unknown, fallback: number): number {
   return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+}
+
+function normalizeString(value: unknown, fallback: string): string {
+  return typeof value === "string" && value.trim().length > 0 ? value : fallback;
 }

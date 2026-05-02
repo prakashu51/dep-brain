@@ -392,6 +392,24 @@ const tests = [
     }
   },
   {
+    name: "plugin hooks can enrich analysis extensions",
+    run: async () => {
+      const fixtureRoot = path.join(__dirname, "fixtures", "unused-project");
+      const result = await analyzeProject({
+        rootDir: fixtureRoot,
+        config: {
+          plugins: {
+            paths: ["../plugin-test.mjs"]
+          }
+        }
+      });
+
+      assert.equal(result.extensions["test-plugin"].postScan, true);
+      assert.equal(result.extensions["test-plugin"].reportHook, true);
+      assert.equal(typeof result.extensions["test-plugin"].scoreAtHook, "number");
+    }
+  },
+  {
     name: "analysis respects config ignore rules and policy thresholds",
     run: async () => {
       const fixtureRoot = path.join(__dirname, "fixtures", "config-project");

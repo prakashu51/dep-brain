@@ -207,10 +207,35 @@ Expected impact:
 
 ## Future Extensions
 
-### Plugin system
+### `v1.2` - Extensible Decision Engine
+
+Goal: evolve `dep-brain` from static CLI analyzer into extensible dependency decision engine.
+
+Build order:
+
+1. Plugin foundation and extension-safe JSON output
+2. Config slots for plugins, risk thresholds, dashboard, and notifications
+3. Transitive graph and risk propagation
+4. First-party license plugin
+5. Dashboard summary with dependency graph after graph data is trustworthy
+6. Smart update advisor with semver guidance and changelog links
+7. Slack and Discord notifications
+8. GitHub PR comments with delta analysis
+9. Safe removal autofix after stronger rollback and test guarantees
+
+Keep in `v1.2`:
 
 - `dep-brain-plugin-security`
 - `dep-brain-plugin-license`
+- dashboard generation from `AnalysisResult`
+- configurable risk thresholds
+- notification summaries
+
+Park until later:
+
+- full D3 force graph until dependency parent-child edges are modeled
+- CVE database ownership until audit/OSV adapter proves value
+- automatic branch, uninstall, test, commit, and revert flow
 
 ### Runtime signal integration
 

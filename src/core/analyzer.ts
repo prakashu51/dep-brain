@@ -12,6 +12,7 @@ import {
 } from "../utils/config.js";
 import { findWorkspacePackages } from "../utils/workspaces.js";
 import { buildDependencyGraph } from "./graph-builder.js";
+import { PluginManager } from "./plugin-manager.js";
 import { calculateHealthScore, calculateScoreDeductions } from "./scorer.js";
 import { buildAnalysisContext } from "./context.js";
 import type { CheckResult, Issue } from "./types.js";
@@ -141,6 +142,7 @@ export interface AnalysisResult {
   risks: RiskDependency[];
   suggestions: string[];
   topIssues: TopIssue[];
+  extensions: Record<string, unknown>;
   config: DepBrainConfig;
   packages?: PackageAnalysisResult[];
 }
@@ -163,6 +165,7 @@ export interface PackageAnalysisResult {
   risks: RiskDependency[];
   suggestions: string[];
   topIssues: TopIssue[];
+  extensions: Record<string, unknown>;
 }
 
 export const OUTPUT_VERSION = "1.4";
@@ -188,13 +191,16 @@ export async function analyzeProject(
   const loadedConfig = await loadDepBrainConfig(rootDir, options.configPath);
   const config = mergeConfig(loadedConfig, options.config);
   const focus = options.focus ?? "all";
+  const plugins = await PluginManager.load(rootDir, config);
+  await plugins.runPreScan({ rootDir, config });
   const workspaces = await findWorkspacePackages(rootDir);
 
   if (workspaces.length === 0) {
-    return analyzeSingleProject(rootDir, config, {
+    const result = await analyzeSingleProject(rootDir, config, {
       baseline: options.baseline,
       focus
     });
+    return plugins.runPostScan(result);
   }
 
   const rootGraph = await buildDependencyGraph(rootDir);
@@ -292,7 +298,7 @@ export async function analyzeProject(
     config
   );
 
-  return {
+  const result: AnalysisResult = {
     outputVersion: OUTPUT_VERSION,
     rootDir,
     score,
@@ -315,9 +321,12 @@ export async function analyzeProject(
       outdated,
       risks
     }),
+    extensions: {},
     config,
     packages
   };
+
+  return plugins.runPostScan(result);
 }
 
 function mergeConfig(
@@ -352,6 +361,25 @@ function mergeConfig(
     report: {
       maxSuggestions:
         overrides.report?.maxSuggestions ?? base.report.maxSuggestions
+    },
+    plugins: {
+      enabled: overrides.plugins?.enabled ?? base.plugins.enabled,
+      paths: overrides.plugins?.paths ?? base.plugins.paths
+    },
+    risk: {
+      transitiveBloatThreshold:
+        overrides.risk?.transitiveBloatThreshold ?? base.risk.transitiveBloatThreshold,
+      typosquattingDistanceThreshold:
+        overrides.risk?.typosquattingDistanceThreshold ?? base.risk.typosquattingDistanceThreshold
+    },
+    dashboard: {
+      outputPath: overrides.dashboard?.outputPath ?? base.dashboard.outputPath
+    },
+    notifications: {
+      slackWebhookEnv:
+        overrides.notifications?.slackWebhookEnv ?? base.notifications.slackWebhookEnv,
+      discordWebhookEnv:
+        overrides.notifications?.discordWebhookEnv ?? base.notifications.discordWebhookEnv
     },
     scoring: {
       duplicateWeight:
@@ -509,6 +537,7 @@ async function analyzeSingleProject(
       outdated: baselineFiltered.outdated,
       risks: baselineFiltered.risks
     }),
+    extensions: {},
     config
   };
 }
