@@ -18,6 +18,41 @@ Use this format for future entries:
 - Follow-up notes
 ```
 
+## 2026-05-01 - v1.2 plugin foundation iteration
+
+### What changed
+
+- Added `PluginManager` with `preScan`, `postScan`, and `reportHook` lifecycle support.
+- Added disabled-by-default plugin config through `plugins.enabled` and `plugins.paths`.
+- Added `extensions` to analysis output so plugins can enrich results without breaking schema.
+- Added future config slots for risk thresholds, dashboard output, and notification webhook env names.
+- Updated config and output schemas, sample config, README, and roadmap.
+- Added regression coverage for plugin hooks enriching `extensions`.
+
+### Why it changed
+
+- v1.2 features need one extension-safe data path before dashboard, license, security, notification, and automation work.
+
+### Files touched
+
+- `src/core/plugin-manager.ts`
+- `src/core/analyzer.ts`
+- `src/utils/config.ts`
+- `src/index.ts`
+- `depbrain.config.json`
+- `depbrain.config.schema.json`
+- `depbrain.output.schema.json`
+- `tests/run.js`
+- `tests/fixtures/plugin-test.mjs`
+- `README.md`
+- `docs/product-roadmap.md`
+- `docs/implementation-log.md`
+
+### Verification completed
+
+- `cmd /c npm run typecheck`
+- `cmd /c npm run test`
+
 ## 2026-04-06 - MVP hardening iteration
 
 ### What changed

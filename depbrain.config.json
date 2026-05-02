@@ -19,6 +19,21 @@
   "report": {
     "maxSuggestions": 5
   },
+  "plugins": {
+    "enabled": [],
+    "paths": []
+  },
+  "risk": {
+    "transitiveBloatThreshold": 50,
+    "typosquattingDistanceThreshold": 2
+  },
+  "dashboard": {
+    "outputPath": "depbrain-dashboard.html"
+  },
+  "notifications": {
+    "slackWebhookEnv": "DEPBRAIN_SLACK_WEBHOOK_URL",
+    "discordWebhookEnv": "DEPBRAIN_DISCORD_WEBHOOK_URL"
+  },
   "scoring": {
     "duplicateWeight": 5,
     "outdatedWeight": 3,

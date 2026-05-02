@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Dependency Brain Analysis Output",
   "type": "object",
-  "required": ["outputVersion", "rootDir", "score", "scoreBreakdown", "policy", "ownershipSummary", "duplicates", "unused", "outdated", "risks", "suggestions", "topIssues", "config"],
+  "required": ["outputVersion", "rootDir", "score", "scoreBreakdown", "policy", "ownershipSummary", "duplicates", "unused", "outdated", "risks", "suggestions", "topIssues", "extensions", "config"],
   "additionalProperties": false,
   "properties": {
     "recommendation": {
@@ -175,6 +175,10 @@
       }
     },
     "suggestions": { "type": "array", "items": { "type": "string" } },
+    "extensions": {
+      "type": "object",
+      "additionalProperties": true
+    },
     "topIssues": {
       "type": "array",
       "items": {

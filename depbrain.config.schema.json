@@ -36,6 +36,37 @@
         "maxSuggestions": { "type": "number" }
       }
     },
+    "plugins": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "array", "items": { "type": "string" } },
+        "paths": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "risk": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "transitiveBloatThreshold": { "type": "number" },
+        "typosquattingDistanceThreshold": { "type": "number" }
+      }
+    },
+    "dashboard": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "outputPath": { "type": "string" }
+      }
+    },
+    "notifications": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "slackWebhookEnv": { "type": "string" },
+        "discordWebhookEnv": { "type": "string" }
+      }
+    },
     "scoring": {
       "type": "object",
       "additionalProperties": false,
