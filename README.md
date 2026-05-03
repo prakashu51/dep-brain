@@ -194,30 +194,6 @@ dep-brain analyze --baseline depbrain-baseline.json --min-score 90 --fail-on-ris
 
 The baseline file is a normal JSON analysis report. Matching entries in `duplicates`, `unused`, `outdated`, and `risks` are ignored before score, policy, suggestions, and top issues are calculated.
 
-## GitHub Action
-
-```yaml
-name: Dependency Brain
-
-on:
-  pull_request:
-
-jobs:
-  dep-brain:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - uses: prakashu51/dep-brain@v1
-        with:
-          format: sarif
-          out: depbrain.sarif
-          min-score: 85
-          fail-on-risks: "true"
-```
-
 ## Config File
 
 Create a `depbrain.config.json` file in the project root:
