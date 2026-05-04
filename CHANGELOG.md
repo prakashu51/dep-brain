@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## 1.3.0
+
+- Added plugin diagnostics under `extensions.depBrain.plugins` for failed plugin loads and hook errors.
+- Added built-in `license` plugin through `plugins.enabled: ["license"]`.
+- Added configurable risk thresholds for stale release days, aging release days, low downloads, and trust score weights.
+- Added `--dashboard` and `--dashboard-out` for static HTML dashboard generation.
+- Updated starter config, schemas, README, and tests for v1.3 behavior.
+
+## 1.2.0
+
+- Added `PluginManager` with `preScan`, `postScan`, and `reportHook` lifecycle support.
+- Added disabled-by-default plugin config through `plugins.enabled` and `plugins.paths`.
+- Added `extensions` to analysis output so plugins can enrich results without breaking schema.
+- Added future config slots for risk thresholds, dashboard output, and notification webhook env names.
+- Added regression coverage for plugin hooks enriching `extensions`.
+
 ## 1.1.0
 
 - Added `--focus` modes for targeted duplicate, unused, outdated, risk, and health analysis.

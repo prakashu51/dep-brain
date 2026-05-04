@@ -25,7 +25,12 @@
   },
   "risk": {
     "transitiveBloatThreshold": 50,
-    "typosquattingDistanceThreshold": 2
+    "typosquattingDistanceThreshold": 2,
+    "staleReleaseDays": 730,
+    "agingReleaseDays": 365,
+    "lowDownloadThreshold": 1000,
+    "lowTrustWeightThreshold": 6,
+    "mediumTrustWeightThreshold": 3
   },
   "dashboard": {
     "outputPath": "depbrain-dashboard.html"
