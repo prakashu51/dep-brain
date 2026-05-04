@@ -15,6 +15,7 @@ import { renderConsoleReport } from "../dist/reporters/console.js";
 import { renderJsonReport } from "../dist/reporters/json.js";
 import { renderMarkdownReport } from "../dist/reporters/markdown.js";
 import { renderSarifReport } from "../dist/reporters/sarif.js";
+import { renderDashboardReport } from "../dist/reporters/dashboard.js";
 import { collectProjectFiles } from "../dist/utils/file-parser.js";
 import { buildAnalysisContext } from "../dist/core/context.js";
 import { defaultConfig } from "../dist/utils/config.js";
@@ -410,6 +411,81 @@ const tests = [
     }
   },
   {
+    name: "plugin failures are reported as diagnostics",
+    run: async () => {
+      const fixtureRoot = path.join(__dirname, "fixtures", "unused-project");
+      const result = await analyzeProject({
+        rootDir: fixtureRoot,
+        config: {
+          plugins: {
+            paths: ["../missing-plugin.mjs"]
+          }
+        }
+      });
+
+      assert.equal(result.extensions.depBrain.plugins[0].code, "load_failed");
+      assert.equal(result.extensions.depBrain.plugins[0].spec, "../missing-plugin.mjs");
+    }
+  },
+  {
+    name: "built-in license plugin reports package licenses",
+    run: async () => {
+      const fixtureRoot = path.join(__dirname, "fixtures", "unused-project");
+      const result = await analyzeProject({
+        rootDir: fixtureRoot,
+        config: {
+          plugins: {
+            enabled: ["license"]
+          }
+        }
+      });
+
+      assert.equal(result.extensions.license.summary.total, 6);
+      assert.equal(result.extensions.license.summary.unknown, 6);
+      assert.ok(result.extensions.license.packages.some((item) => item.name === "unused-lib"));
+    }
+  },
+  {
+    name: "risk thresholds are configurable",
+    run: async () => {
+      const risks = await findRiskDependencies(
+        {
+          rootDir: "D:/fixture",
+          packageJsonPath: "D:/fixture/package.json",
+          dependencies: {
+            stale: "^1.0.0"
+          },
+          devDependencies: {},
+          overrides: {},
+          scripts: {},
+          lockPackages: {}
+        },
+        {
+          thresholds: {
+            ...defaultConfig.risk,
+            staleReleaseDays: 1000,
+            agingReleaseDays: 700,
+            lowTrustWeightThreshold: 4,
+            mediumTrustWeightThreshold: 2
+          },
+          resolvePackageMetadata: async () => ({
+            latestVersion: "1.0.0",
+            repository: "https://github.com/example/stale",
+            downloads: 100000,
+            daysSincePublish: 800,
+            maintainersCount: 2,
+            versionCount: 20,
+            recentReleaseCount: 0
+          })
+        }
+      );
+
+      assert.equal(risks.length, 1);
+      assert.equal(risks[0].trustScore, "medium");
+      assert.ok(risks[0].reasonCodes.includes("aging_release"));
+    }
+  },
+  {
     name: "analysis respects config ignore rules and policy thresholds",
     run: async () => {
       const fixtureRoot = path.join(__dirname, "fixtures", "config-project");
@@ -785,6 +861,30 @@ const tests = [
       assert.equal(result.ruleId, "dep-brain-unused");
       assert.equal(result.level, "error"); // Because priority was "high"
       assert.ok(result.message.text.includes("unused-lib"));
+    }
+  },
+  {
+    name: "dashboard report is valid html",
+    run: async () => {
+      const report = renderDashboardReport({
+        outputVersion: "1.4",
+        rootDir: "D:/fixture",
+        score: 100,
+        scoreBreakdown: { baseScore: 100, duplicates: 0, outdated: 0, unused: 0, risks: 0, weights: { duplicateWeight: 5, outdatedWeight: 3, unusedWeight: 4, riskWeight: 10 } },
+        policy: { passed: true, reasons: [] },
+        ownershipSummary: { duplicates: 0, unused: 0, outdated: 0, risks: 0 },
+        duplicates: [],
+        unused: [],
+        outdated: [],
+        risks: [],
+        suggestions: ["Keep dependencies reviewed"],
+        topIssues: [],
+        extensions: {},
+        config: defaultConfig
+      });
+
+      assert.ok(report.includes("<!doctype html>"));
+      assert.ok(report.includes("Dependency Brain Dashboard"));
     }
   },
   {
