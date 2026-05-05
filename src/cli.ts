@@ -6,6 +6,7 @@ import { renderConsoleReport } from "./reporters/console.js";
 import { renderJsonReport } from "./reporters/json.js";
 import { renderMarkdownReport } from "./reporters/markdown.js";
 import { renderSarifReport } from "./reporters/sarif.js";
+import { renderDashboardReport } from "./reporters/dashboard.js";
 import { defaultConfig, type DepBrainConfig, type DepBrainConfigOverrides } from "./utils/config.js";
 import { promises as fs } from "node:fs";
 import path from "node:path";
@@ -72,7 +73,9 @@ async function main(): Promise<void> {
             ? JSON.stringify(reportData, null, 2)
             : flags.has("--sarif")
               ? renderSarifReport(reportData)
-            : renderMarkdownReport(reportData);
+              : flags.has("--dashboard")
+                ? renderDashboardReport(reportData)
+                : renderMarkdownReport(reportData);
         await writeOutput(output, optionValues.get("--out"));
         return;
       } catch (error) {
@@ -166,6 +169,12 @@ async function main(): Promise<void> {
     }
 
     await writeOutput(output, optionValues.get("--out"));
+    if (flags.has("--dashboard")) {
+      await writeOutput(
+        renderDashboardReport(result),
+        optionValues.get("--dashboard-out") ?? result.config.dashboard.outputPath
+      );
+    }
 
     if (!result.policy.passed) {
       process.exitCode = 1;
@@ -239,9 +248,9 @@ function printHelp(): void {
   console.log("");
   console.log("Usage:");
   console.log(
-    "  dep-brain analyze [path] [--json] [--md] [--sarif] [--top] [--focus kind] [--ci] [--out path] [--config path] [--baseline path] [--min-score n] [--fail-on-risks]"
+    "  dep-brain analyze [path] [--json] [--md] [--sarif] [--top] [--dashboard] [--focus kind] [--ci] [--out path] [--config path] [--baseline path] [--min-score n] [--fail-on-risks]"
   );
-  console.log("  dep-brain report --from <file> [--md] [--json] [--sarif] [--top] [--out path]");
+  console.log("  dep-brain report --from <file> [--md] [--json] [--sarif] [--top] [--dashboard] [--out path]");
   console.log("  dep-brain config [path] [--config path]");
   console.log("  dep-brain init [--out depbrain.config.json]");
   console.log("  dep-brain help");
@@ -252,6 +261,8 @@ function printHelp(): void {
   console.log("  --md                Output Markdown report");
   console.log("  --sarif             Output SARIF format for Code Scanning");
   console.log("  --top               Output the ranked top issues only");
+  console.log("  --dashboard         Write an HTML dashboard");
+  console.log("  --dashboard-out <path> Write dashboard HTML to a custom path");
   console.log("  --focus <kind>      Run all, health, duplicates, unused, outdated, or risks");
   console.log("  --ci                Apply low-noise CI defaults");
   console.log("  --config <path>     Path to depbrain.config.json");

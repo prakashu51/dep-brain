@@ -10,12 +10,11 @@ import {
   getPackageMetadata,
   type PackageMetadata
 } from "../utils/npm-api.js";
-
-const TWO_YEARS_IN_DAYS = 365 * 2;
-const ONE_YEAR_IN_DAYS = 365;
+import type { DepBrainConfig } from "../utils/config.js";
 
 export interface RiskCheckOptions {
   resolvePackageMetadata?: (name: string) => Promise<PackageMetadata | null>;
+  thresholds?: DepBrainConfig["risk"];
 }
 
 export async function findRiskDependencies(
@@ -40,7 +39,7 @@ export async function findRiskDependencies(
         : graph.devDependencies[name]
           ? "devDependencies"
           : "unknown";
-      const assessment = assessRisk(metadata, dependencyType);
+      const assessment = assessRisk(metadata, dependencyType, options.thresholds);
 
       if (!shouldReportRisk(assessment.trustScore, dependencyType)) {
         return null;
@@ -92,9 +91,10 @@ async function mapWithConcurrency<T, R>(
 }
 
 export async function runRiskCheck(
-  graph: DependencyGraph
+  graph: DependencyGraph,
+  options: RiskCheckOptions = {}
 ): Promise<CheckResult> {
-  const risks = await findRiskDependencies(graph);
+  const risks = await findRiskDependencies(graph, options);
 
   return {
     name: "risk",
@@ -123,7 +123,8 @@ export async function runRiskCheck(
 
 function assessRisk(
   metadata: PackageMetadata,
-  dependencyType: RiskFactors["dependencyType"]
+  dependencyType: RiskFactors["dependencyType"],
+  thresholds?: DepBrainConfig["risk"]
 ): {
   confidence: number;
   trustScore: TrustScore;
@@ -134,21 +135,26 @@ function assessRisk(
   const reasons: string[] = [];
   const reasonCodes: string[] = [];
   let weight = 0;
+  const staleReleaseDays = thresholds?.staleReleaseDays ?? 730;
+  const agingReleaseDays = thresholds?.agingReleaseDays ?? 365;
+  const lowDownloadThreshold = thresholds?.lowDownloadThreshold ?? 1000;
+  const lowTrustWeightThreshold = thresholds?.lowTrustWeightThreshold ?? 6;
+  const mediumTrustWeightThreshold = thresholds?.mediumTrustWeightThreshold ?? 3;
 
-  if (metadata.daysSincePublish !== null && metadata.daysSincePublish > TWO_YEARS_IN_DAYS) {
-    reasons.push("No release in over 2 years");
+  if (metadata.daysSincePublish !== null && metadata.daysSincePublish > staleReleaseDays) {
+    reasons.push(`No release in over ${formatDays(staleReleaseDays)}`);
     reasonCodes.push("stale_release");
     weight += 3;
   } else if (
     metadata.daysSincePublish !== null &&
-    metadata.daysSincePublish > ONE_YEAR_IN_DAYS
+    metadata.daysSincePublish > agingReleaseDays
   ) {
-    reasons.push("No release in over 12 months");
+    reasons.push(`No release in over ${formatDays(agingReleaseDays)}`);
     reasonCodes.push("aging_release");
     weight += 2;
   }
 
-  if (metadata.downloads !== null && metadata.downloads < 1000) {
+  if (metadata.downloads !== null && metadata.downloads < lowDownloadThreshold) {
     reasons.push("Low weekly download volume");
     reasonCodes.push("low_download_volume");
     weight += 2;
@@ -184,7 +190,12 @@ function assessRisk(
 
   const confidence =
     reasons.length === 0 ? 0.5 : Math.min(0.99, 0.52 + weight * 0.07);
-  const trustScore = weight >= 6 ? "low" : weight >= 3 ? "medium" : "high";
+  const trustScore =
+    weight >= lowTrustWeightThreshold
+      ? "low"
+      : weight >= mediumTrustWeightThreshold
+        ? "medium"
+        : "high";
 
   return {
     confidence,
@@ -201,6 +212,16 @@ function assessRisk(
       dependencyType
     }
   };
+}
+
+function formatDays(days: number): string {
+  if (days === 730) {
+    return "2 years";
+  }
+  if (days === 365) {
+    return "12 months";
+  }
+  return `${days} days`;
 }
 
 function shouldReportRisk(
