@@ -30,6 +30,11 @@ export interface DepBrainConfig {
   risk: {
     transitiveBloatThreshold: number;
     typosquattingDistanceThreshold: number;
+    staleReleaseDays: number;
+    agingReleaseDays: number;
+    lowDownloadThreshold: number;
+    lowTrustWeightThreshold: number;
+    mediumTrustWeightThreshold: number;
   };
   dashboard: {
     outputPath: string;
@@ -88,7 +93,12 @@ export const defaultConfig: DepBrainConfig = {
   },
   risk: {
     transitiveBloatThreshold: 50,
-    typosquattingDistanceThreshold: 2
+    typosquattingDistanceThreshold: 2,
+    staleReleaseDays: 730,
+    agingReleaseDays: 365,
+    lowDownloadThreshold: 1000,
+    lowTrustWeightThreshold: 6,
+    mediumTrustWeightThreshold: 3
   },
   dashboard: {
     outputPath: "depbrain-dashboard.html"
@@ -211,6 +221,26 @@ function normalizeConfig(loaded: Partial<DepBrainConfig>): DepBrainConfig {
       typosquattingDistanceThreshold: normalizeNumber(
         loaded.risk?.typosquattingDistanceThreshold,
         defaultConfig.risk.typosquattingDistanceThreshold
+      ),
+      staleReleaseDays: normalizeNumber(
+        loaded.risk?.staleReleaseDays,
+        defaultConfig.risk.staleReleaseDays
+      ),
+      agingReleaseDays: normalizeNumber(
+        loaded.risk?.agingReleaseDays,
+        defaultConfig.risk.agingReleaseDays
+      ),
+      lowDownloadThreshold: normalizeNumber(
+        loaded.risk?.lowDownloadThreshold,
+        defaultConfig.risk.lowDownloadThreshold
+      ),
+      lowTrustWeightThreshold: normalizeNumber(
+        loaded.risk?.lowTrustWeightThreshold,
+        defaultConfig.risk.lowTrustWeightThreshold
+      ),
+      mediumTrustWeightThreshold: normalizeNumber(
+        loaded.risk?.mediumTrustWeightThreshold,
+        defaultConfig.risk.mediumTrustWeightThreshold
       )
     },
     dashboard: {

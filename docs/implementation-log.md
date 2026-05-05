@@ -18,6 +18,42 @@ Use this format for future entries:
 - Follow-up notes
 ```
 
+## 2026-05-03 - v1.3 dashboard and plugin quality iteration
+
+### What changed
+
+- Added plugin diagnostics for failed loads and hook errors under `extensions.depBrain.plugins`.
+- Added built-in `license` plugin enabled through `plugins.enabled`.
+- Wired risk threshold config into risk assessment.
+- Added static HTML dashboard rendering through `--dashboard` and `--dashboard-out`.
+- Bumped package version to `1.3.0` and updated changelog, schemas, config, README, and tests.
+
+### Why it changed
+
+- v1.3 needs visible value on top of the v1.2 extension foundation without adding notification or autofix risk too early.
+
+### Files touched
+
+- `src/core/plugin-manager.ts`
+- `src/core/analyzer.ts`
+- `src/checks/risk.ts`
+- `src/reporters/dashboard.ts`
+- `src/cli.ts`
+- `src/index.ts`
+- `src/utils/config.ts`
+- `depbrain.config.json`
+- `depbrain.config.schema.json`
+- `README.md`
+- `CHANGELOG.md`
+- `package.json`
+- `package-lock.json`
+- `tests/run.js`
+
+### Verification completed
+
+- `cmd /c npm run typecheck`
+- `cmd /c npm run test`
+
 ## 2026-05-01 - v1.2 plugin foundation iteration
 
 ### What changed

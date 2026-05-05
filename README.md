@@ -23,7 +23,7 @@
 - Highlight dependency risk signals
 - Score package trust using supply-chain metadata
 - Generate a simple project health score
-- Output reports in console, JSON, Markdown, SARIF, and top-issues formats
+- Output reports in console, JSON, Markdown, SARIF, dashboard, and top-issues formats
 - Gate CI with score and finding policies
 - Compare new findings against a baseline report
 
@@ -48,12 +48,14 @@ The long-term goal is not just to list problems, but to answer:
 - JSON output via `--json`
 - Markdown output via `--md`
 - SARIF output via `--sarif`
+- Static HTML dashboard via `--dashboard`
 - Ranked top issues via `--top`
 - Baseline mode via `--baseline`
 - Focused analysis via `--focus`
 - Low-noise CI defaults via `--ci`
 - Starter config generation via `dep-brain init`
 - Reusable GitHub Action via `action.yml`
+- Built-in `license` plugin and plugin diagnostics
 - Library entrypoint for programmatic use
 
 ## CLI Usage
@@ -73,6 +75,8 @@ npx dep-brain analyze ./path-to-project --fail-on-unused --json
 npx dep-brain analyze --md > depbrain.md
 npx dep-brain analyze --json --out depbrain.json
 npx dep-brain analyze --sarif --out depbrain.sarif
+npx dep-brain analyze --dashboard
+npx dep-brain analyze --dashboard --dashboard-out reports/depbrain.html
 npx dep-brain analyze --focus duplicates
 npx dep-brain analyze --ci
 npx dep-brain analyze --baseline depbrain-baseline.json
@@ -176,6 +180,28 @@ dep-brain analyze --top
 
 Shows the highest-priority actionable findings first, including confidence and next-step guidance.
 
+## Dashboard Output
+
+```bash
+dep-brain analyze --dashboard
+dep-brain analyze --dashboard --dashboard-out reports/depbrain.html
+```
+
+Writes a static HTML dashboard. Default path comes from `dashboard.outputPath`.
+
+## Plugins
+
+```json
+{
+  "plugins": {
+    "enabled": ["license"],
+    "paths": ["./depbrain-plugin.mjs"]
+  }
+}
+```
+
+Built-in `license` plugin adds license counts under `extensions.license`. Failed plugin loads and hook errors are reported under `extensions.depBrain.plugins`.
+
 ## Report From JSON
 
 ```bash
@@ -215,12 +241,17 @@ Create a `depbrain.config.json` file in the project root:
     "maxSuggestions": 3
   },
   "plugins": {
-    "enabled": [],
+    "enabled": ["license"],
     "paths": []
   },
   "risk": {
     "transitiveBloatThreshold": 50,
-    "typosquattingDistanceThreshold": 2
+    "typosquattingDistanceThreshold": 2,
+    "staleReleaseDays": 730,
+    "agingReleaseDays": 365,
+    "lowDownloadThreshold": 1000,
+    "lowTrustWeightThreshold": 6,
+    "mediumTrustWeightThreshold": 3
   },
   "dashboard": {
     "outputPath": "depbrain-dashboard.html"
@@ -259,6 +290,11 @@ Supported sections:
 - `plugins.paths`
 - `risk.transitiveBloatThreshold`
 - `risk.typosquattingDistanceThreshold`
+- `risk.staleReleaseDays`
+- `risk.agingReleaseDays`
+- `risk.lowDownloadThreshold`
+- `risk.lowTrustWeightThreshold`
+- `risk.mediumTrustWeightThreshold`
 - `dashboard.outputPath`
 - `notifications.slackWebhookEnv`
 - `notifications.discordWebhookEnv`

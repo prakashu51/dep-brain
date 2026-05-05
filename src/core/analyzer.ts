@@ -370,7 +370,17 @@ function mergeConfig(
       transitiveBloatThreshold:
         overrides.risk?.transitiveBloatThreshold ?? base.risk.transitiveBloatThreshold,
       typosquattingDistanceThreshold:
-        overrides.risk?.typosquattingDistanceThreshold ?? base.risk.typosquattingDistanceThreshold
+        overrides.risk?.typosquattingDistanceThreshold ?? base.risk.typosquattingDistanceThreshold,
+      staleReleaseDays:
+        overrides.risk?.staleReleaseDays ?? base.risk.staleReleaseDays,
+      agingReleaseDays:
+        overrides.risk?.agingReleaseDays ?? base.risk.agingReleaseDays,
+      lowDownloadThreshold:
+        overrides.risk?.lowDownloadThreshold ?? base.risk.lowDownloadThreshold,
+      lowTrustWeightThreshold:
+        overrides.risk?.lowTrustWeightThreshold ?? base.risk.lowTrustWeightThreshold,
+      mediumTrustWeightThreshold:
+        overrides.risk?.mediumTrustWeightThreshold ?? base.risk.mediumTrustWeightThreshold
     },
     dashboard: {
       outputPath: overrides.dashboard?.outputPath ?? base.dashboard.outputPath
@@ -443,7 +453,7 @@ async function analyzeSingleProject(
   options: { packageName?: string; baseline?: DepBrainBaseline; focus?: AnalysisFocus } = {}
 ): Promise<AnalysisResult> {
   const context = await buildAnalysisContext(rootDir, config);
-  const results = await runChecks(context, options.focus ?? "all");
+  const results = await runChecks(context, options.focus ?? "all", config);
   const issueGroups = normalizeIssues(results, config);
 
   const duplicates = mapDuplicateIssues(issueGroups.duplicates);
@@ -572,7 +582,7 @@ async function runChecks(context: {
   projectFiles: string[];
   fileEntries: { path: string; content: string }[];
   hasTypeScriptConfig: boolean;
-}, focus: AnalysisFocus): Promise<CheckResult[]> {
+}, focus: AnalysisFocus, config: DepBrainConfig): Promise<CheckResult[]> {
   const checks = [
     {
       name: "duplicate",
@@ -588,7 +598,7 @@ async function runChecks(context: {
     },
     {
       name: "risk",
-      run: () => runRiskCheck(context.graph)
+      run: () => runRiskCheck(context.graph, { thresholds: config.risk })
     }
   ];
 

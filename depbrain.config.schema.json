@@ -49,7 +49,12 @@
       "additionalProperties": false,
       "properties": {
         "transitiveBloatThreshold": { "type": "number" },
-        "typosquattingDistanceThreshold": { "type": "number" }
+        "typosquattingDistanceThreshold": { "type": "number" },
+        "staleReleaseDays": { "type": "number" },
+        "agingReleaseDays": { "type": "number" },
+        "lowDownloadThreshold": { "type": "number" },
+        "lowTrustWeightThreshold": { "type": "number" },
+        "mediumTrustWeightThreshold": { "type": "number" }
       }
     },
     "dashboard": {
