@@ -68,9 +68,19 @@ export interface RiskFactors {
   recentReleaseCount: number | null;
   hasRepository: boolean;
   dependencyType: "dependencies" | "devDependencies" | "unknown";
+  transitiveDependencyCount: number;
+  riskyTransitiveCount: number;
 }
 
 export type TrustScore = "high" | "medium" | "low";
+
+export interface RiskTransitiveDependency {
+  name: string;
+  trustScore: TrustScore;
+  confidence: number;
+  reasons: string[];
+  introducedByPaths: string[];
+}
 
 export interface DuplicateDependency {
   name: string;
@@ -115,6 +125,8 @@ export interface RiskDependency {
   explanation: string[];
   trustScore: TrustScore;
   riskFactors: RiskFactors;
+  transitiveRiskScore: number;
+  riskyTransitiveDeps: RiskTransitiveDependency[];
   recommendation: Recommendation;
 }
 
@@ -168,7 +180,7 @@ export interface PackageAnalysisResult {
   extensions: Record<string, unknown>;
 }
 
-export const OUTPUT_VERSION = "1.4";
+export const OUTPUT_VERSION = "1.5";
 
 export interface ScoreBreakdown {
   baseScore: number;
@@ -718,6 +730,11 @@ function mapRiskIssues(issues: Issue[]): RiskDependency[] {
     explanation: normalizeStringArray(issue.explanation),
     trustScore: normalizeTrustScore(issue.meta?.trustScore),
     riskFactors: normalizeRiskFactors(issue.meta?.riskFactors),
+    transitiveRiskScore:
+      typeof issue.meta?.transitiveRiskScore === "number"
+        ? issue.meta.transitiveRiskScore
+        : 0,
+    riskyTransitiveDeps: normalizeRiskTransitiveDependencies(issue.meta?.riskyTransitiveDeps),
     recommendation: buildRiskRecommendation(issue)
   }));
 }
@@ -796,15 +813,21 @@ function buildRiskRecommendation(issue: Issue): Recommendation {
   const reasons = normalizeStringArray(issue.explanation);
   const confidence = normalizeConfidence(issue.confidence);
   const trustScore = normalizeTrustScore(issue.meta?.trustScore);
+  const riskyTransitiveDeps = normalizeRiskTransitiveDependencies(issue.meta?.riskyTransitiveDeps);
 
   return {
     action: "review",
-    priority: trustScore === "low" || confidence >= 0.79 ? "high" : "medium",
+    priority:
+      trustScore === "low" || confidence >= 0.79 || riskyTransitiveDeps.length >= 2
+        ? "high"
+        : "medium",
     safety: "caution",
     summary:
-      trustScore === "low"
-        ? "Low trust package; review whether to replace, pin, or monitor it closely."
-        : "Review package trust signals and decide whether to keep, replace, or monitor it.",
+      riskyTransitiveDeps.length > 0
+        ? "Review this direct dependency and its transitive chain before upgrading or keeping it."
+        : trustScore === "low"
+          ? "Low trust package; review whether to replace, pin, or monitor it closely."
+          : "Review package trust signals and decide whether to keep, replace, or monitor it.",
     reasons
   };
 }
@@ -1017,7 +1040,9 @@ function normalizeRiskFactors(value: unknown): RiskFactors {
       versionCount: null,
       recentReleaseCount: null,
       hasRepository: false,
-      dependencyType: "unknown"
+      dependencyType: "unknown",
+      transitiveDependencyCount: 0,
+      riskyTransitiveCount: 0
     };
   }
 
@@ -1035,8 +1060,47 @@ function normalizeRiskFactors(value: unknown): RiskFactors {
     dependencyType:
       factors.dependencyType === "dependencies" || factors.dependencyType === "devDependencies"
         ? factors.dependencyType
-        : "unknown"
+        : "unknown",
+    transitiveDependencyCount:
+      typeof factors.transitiveDependencyCount === "number" ? factors.transitiveDependencyCount : 0,
+    riskyTransitiveCount:
+      typeof factors.riskyTransitiveCount === "number" ? factors.riskyTransitiveCount : 0
   };
+}
+
+function normalizeRiskTransitiveDependencies(value: unknown): RiskTransitiveDependency[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((entry) => {
+      if (!entry || typeof entry !== "object") {
+        return null;
+      }
+
+      const item = entry as Partial<RiskTransitiveDependency>;
+      if (
+        typeof item.name !== "string" ||
+        (item.trustScore !== "high" && item.trustScore !== "medium" && item.trustScore !== "low") ||
+        typeof item.confidence !== "number" ||
+        !Array.isArray(item.reasons) ||
+        !Array.isArray(item.introducedByPaths)
+      ) {
+        return null;
+      }
+
+      return {
+        name: item.name,
+        trustScore: item.trustScore,
+        confidence: normalizeConfidence(item.confidence),
+        reasons: item.reasons.filter((reason): reason is string => typeof reason === "string"),
+        introducedByPaths: item.introducedByPaths.filter(
+          (trace): trace is string => typeof trace === "string"
+        )
+      };
+    })
+    .filter((entry): entry is RiskTransitiveDependency => entry !== null);
 }
 
 function normalizeWorkspaceUsage(value: unknown): WorkspaceDependencyUsage[] {

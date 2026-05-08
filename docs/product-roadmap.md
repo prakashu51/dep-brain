@@ -227,13 +227,23 @@ Delivered:
 3. Static HTML dashboard from `AnalysisResult`
 4. Configurable risk thresholds
 
+### `v1.4` - Transitive Risk Intelligence
+
+Goal: explain which direct dependency introduces risky transitive packages.
+
+Delivered:
+
+1. Lockfile dependency-edge parsing for npm, pnpm, and yarn
+2. Direct-owner transitive risk summaries
+3. `transitiveRiskScore` and `riskyTransitiveDeps` in core output
+4. Dashboard, console, and markdown transitive risk hotspots
+
 Next build order:
 
-1. Transitive graph and risk propagation
-2. Smart update advisor with semver guidance and changelog links
-3. Slack and Discord notification summaries
-4. GitHub PR comments with delta analysis
-5. Safe removal autofix after stronger rollback and test guarantees
+1. Smart update advisor with semver guidance and changelog links
+2. Slack and Discord notification summaries
+3. GitHub PR comments with delta analysis
+4. Safe removal autofix after stronger rollback and test guarantees
 
 Park until later:
 

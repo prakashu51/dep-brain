@@ -19,7 +19,7 @@
     },
     "riskFactors": {
       "type": "object",
-      "required": ["daysSincePublish", "downloads", "maintainersCount", "versionCount", "recentReleaseCount", "hasRepository", "dependencyType"],
+      "required": ["daysSincePublish", "downloads", "maintainersCount", "versionCount", "recentReleaseCount", "hasRepository", "dependencyType", "transitiveDependencyCount", "riskyTransitiveCount"],
       "additionalProperties": false,
       "properties": {
         "daysSincePublish": { "type": ["number", "null"] },
@@ -28,7 +28,21 @@
         "versionCount": { "type": ["number", "null"] },
         "recentReleaseCount": { "type": ["number", "null"] },
         "hasRepository": { "type": "boolean" },
-        "dependencyType": { "type": "string", "enum": ["dependencies", "devDependencies", "unknown"] }
+        "dependencyType": { "type": "string", "enum": ["dependencies", "devDependencies", "unknown"] },
+        "transitiveDependencyCount": { "type": "number" },
+        "riskyTransitiveCount": { "type": "number" }
+      }
+    },
+    "riskTransitiveDependency": {
+      "type": "object",
+      "required": ["name", "trustScore", "confidence", "reasons", "introducedByPaths"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string" },
+        "trustScore": { "type": "string", "enum": ["high", "medium", "low"] },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "reasons": { "type": "array", "items": { "type": "string" } },
+        "introducedByPaths": { "type": "array", "items": { "type": "string" } }
       }
     },
     "ownershipSummary": {
@@ -159,7 +173,7 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["name", "reasons", "confidence", "reasonCodes", "explanation", "trustScore", "riskFactors", "recommendation"],
+        "required": ["name", "reasons", "confidence", "reasonCodes", "explanation", "trustScore", "riskFactors", "transitiveRiskScore", "riskyTransitiveDeps", "recommendation"],
         "additionalProperties": false,
         "properties": {
           "name": { "type": "string" },
@@ -170,6 +184,11 @@
           "explanation": { "type": "array", "items": { "type": "string" } },
           "trustScore": { "type": "string", "enum": ["high", "medium", "low"] },
           "riskFactors": { "$ref": "#/properties/riskFactors" },
+          "transitiveRiskScore": { "type": "number" },
+          "riskyTransitiveDeps": {
+            "type": "array",
+            "items": { "$ref": "#/properties/riskTransitiveDependency" }
+          },
           "recommendation": { "$ref": "#/properties/recommendation" }
         }
       }

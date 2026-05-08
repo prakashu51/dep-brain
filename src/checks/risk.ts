@@ -3,6 +3,7 @@ import type {
   Recommendation,
   RiskDependency,
   RiskFactors,
+  RiskTransitiveDependency,
   TrustScore
 } from "../core/analyzer.js";
 import type { CheckResult } from "../core/types.js";
@@ -17,53 +18,64 @@ export interface RiskCheckOptions {
   thresholds?: DepBrainConfig["risk"];
 }
 
+interface PackageAssessment {
+  name: string;
+  confidence: number;
+  trustScore: TrustScore;
+  reasons: string[];
+  reasonCodes: string[];
+  riskFactors: RiskFactors;
+}
+
 export async function findRiskDependencies(
   graph: DependencyGraph,
   options: RiskCheckOptions = {}
 ): Promise<RiskDependency[]> {
   const resolvePackageMetadata =
     options.resolvePackageMetadata ?? getPackageMetadata;
-  const names = Object.keys({
+  const thresholds = options.thresholds;
+  const allNames = Object.keys({
     ...graph.dependencies,
-    ...graph.devDependencies
+    ...graph.devDependencies,
+    ...(graph.lockPackages ?? {})
   });
 
-  const results = await mapWithConcurrency(names, 8, async (name) => {
-      const metadata = await resolvePackageMetadata(name);
-      if (!metadata) {
-        return null;
-      }
+  const assessments = new Map<string, PackageAssessment>();
+  const results = await mapWithConcurrency(allNames, 8, async (name) => {
+    const metadata = await resolvePackageMetadata(name);
+    if (!metadata) {
+      return null;
+    }
 
-      const dependencyType = graph.dependencies[name]
-        ? "dependencies"
-        : graph.devDependencies[name]
-          ? "devDependencies"
-          : "unknown";
-      const assessment = assessRisk(metadata, dependencyType, options.thresholds);
+    const dependencyType = graph.dependencies[name]
+      ? "dependencies"
+      : graph.devDependencies[name]
+        ? "devDependencies"
+        : "unknown";
 
-      if (!shouldReportRisk(assessment.trustScore, dependencyType)) {
-        return null;
-      }
+    const assessment = assessRisk(metadata, dependencyType, thresholds, 0);
+    return {
+      name,
+      assessment
+    };
+  });
 
-      return {
-        name,
-        reasons: assessment.reasons,
-        confidence: assessment.confidence,
-        reasonCodes: assessment.reasonCodes,
-        explanation: assessment.reasons,
-        trustScore: assessment.trustScore,
-        riskFactors: assessment.riskFactors,
-        recommendation: buildRiskRecommendation(
-          assessment.reasons,
-          assessment.confidence,
-          assessment.trustScore
-        )
-      };
-    });
+  for (const result of results) {
+    if (result) {
+      assessments.set(result.name, result.assessment);
+    }
+  }
 
-  return results
-    .filter((item): item is RiskDependency => item !== null)
-    .sort((left, right) => left.name.localeCompare(right.name));
+  const directNames = Object.keys({
+    ...graph.dependencies,
+    ...graph.devDependencies
+  }).sort((left, right) => left.localeCompare(right));
+
+  const risks = directNames
+    .map((name) => buildDirectRiskEntry(name, graph, assessments, thresholds))
+    .filter((item): item is RiskDependency => item !== null);
+
+  return risks.sort((left, right) => left.name.localeCompare(right.name));
 }
 
 async function mapWithConcurrency<T, R>(
@@ -115,23 +127,180 @@ export async function runRiskCheck(
         name: item.name,
         reasons: item.reasons,
         trustScore: item.trustScore,
-        riskFactors: item.riskFactors
+        riskFactors: item.riskFactors,
+        transitiveRiskScore: item.transitiveRiskScore,
+        riskyTransitiveDeps: item.riskyTransitiveDeps
       }
     }))
+  };
+}
+
+function buildDirectRiskEntry(
+  name: string,
+  graph: DependencyGraph,
+  assessments: Map<string, PackageAssessment>,
+  thresholds?: DepBrainConfig["risk"]
+): RiskDependency | null {
+  const dependencyType = graph.dependencies[name]
+    ? "dependencies"
+    : graph.devDependencies[name]
+      ? "devDependencies"
+      : "unknown";
+  const selfAssessment = assessments.get(name) ?? buildUnknownAssessment(name, dependencyType);
+  const transitive = collectTransitiveRisks(name, graph, assessments);
+
+  const reasonCodes = [...selfAssessment.reasonCodes];
+  const reasons = [...selfAssessment.reasons];
+  const explanation = [...selfAssessment.reasons];
+
+  if (transitive.riskyTransitiveDeps.length > 0) {
+    reasons.push(
+      `Introduces ${transitive.riskyTransitiveDeps.length} risky transitive dependenc${transitive.riskyTransitiveDeps.length === 1 ? "y" : "ies"}`
+    );
+    reasonCodes.push("risky_transitive_dependencies");
+    explanation.push(
+      `Transitive paths: ${transitive.riskyTransitiveDeps
+        .flatMap((item) => item.introducedByPaths)
+        .slice(0, 3)
+        .join("; ")}`
+    );
+  }
+
+  if (transitive.transitiveDependencyCount > (thresholds?.transitiveBloatThreshold ?? 50)) {
+    reasons.push("Large transitive dependency tree");
+    reasonCodes.push("dependency_bloat");
+    explanation.push(
+      `${name} introduces ${transitive.transitiveDependencyCount} transitive dependencies.`
+    );
+  }
+
+  const transitiveRiskScore = transitive.riskyTransitiveDeps.reduce(
+    (total, item) => total + trustScoreWeight(item.trustScore),
+    0
+  );
+  const combinedConfidence = Math.min(
+    0.99,
+    Math.max(
+      selfAssessment.confidence,
+      transitive.riskyTransitiveDeps.reduce(
+        (maxConfidence, item) => Math.max(maxConfidence, item.confidence),
+        0.5
+      )
+    )
+  );
+  const trustScore = combineTrustScores(
+    selfAssessment.trustScore,
+    transitive.highestTrustScore
+  );
+  const shouldReport =
+    shouldReportRisk(selfAssessment.trustScore, dependencyType) ||
+    transitive.riskyTransitiveDeps.length > 0 ||
+    transitive.transitiveDependencyCount > (thresholds?.transitiveBloatThreshold ?? 50);
+
+  if (!shouldReport || reasons.length === 0) {
+    return null;
+  }
+
+  return {
+    name,
+    reasons,
+    confidence: combinedConfidence,
+    reasonCodes: dedupeStrings(reasonCodes),
+    explanation: dedupeStrings(explanation),
+    trustScore,
+    riskFactors: {
+      ...selfAssessment.riskFactors,
+      dependencyType,
+      transitiveDependencyCount: transitive.transitiveDependencyCount,
+      riskyTransitiveCount: transitive.riskyTransitiveDeps.length
+    },
+    transitiveRiskScore,
+    riskyTransitiveDeps: transitive.riskyTransitiveDeps,
+    recommendation: buildRiskRecommendation(
+      reasons,
+      combinedConfidence,
+      trustScore,
+      transitive.riskyTransitiveDeps.length
+    )
+  };
+}
+
+function collectTransitiveRisks(
+  directName: string,
+  graph: DependencyGraph,
+  assessments: Map<string, PackageAssessment>
+): {
+  transitiveDependencyCount: number;
+  riskyTransitiveDeps: RiskTransitiveDependency[];
+  highestTrustScore: TrustScore;
+} {
+  const visited = new Set<string>();
+  const queue = (graph.lockDependencies?.[directName] ?? []).map((name) => ({
+    name,
+    path: [directName, name]
+  }));
+  const riskyByName = new Map<string, RiskTransitiveDependency>();
+  let highestTrustScore: TrustScore = "high";
+
+  while (queue.length > 0) {
+    const current = queue.shift();
+    if (!current || visited.has(current.name)) {
+      continue;
+    }
+
+    visited.add(current.name);
+    const assessment = assessments.get(current.name);
+    if (assessment && shouldReportRisk(assessment.trustScore, assessment.riskFactors.dependencyType)) {
+      highestTrustScore = combineTrustScores(highestTrustScore, assessment.trustScore);
+      const existing = riskyByName.get(current.name);
+      const pathTrace = current.path.join(" -> ");
+
+      if (existing) {
+        existing.introducedByPaths.push(pathTrace);
+      } else {
+        riskyByName.set(current.name, {
+          name: current.name,
+          trustScore: assessment.trustScore,
+          confidence: assessment.confidence,
+          reasons: assessment.reasons,
+          introducedByPaths: [pathTrace]
+        });
+      }
+    }
+
+    const nextDependencies = graph.lockDependencies?.[current.name] ?? [];
+    for (const dependency of nextDependencies) {
+      if (!visited.has(dependency)) {
+        queue.push({
+          name: dependency,
+          path: [...current.path, dependency]
+        });
+      }
+    }
+  }
+
+  return {
+    transitiveDependencyCount: visited.size,
+    riskyTransitiveDeps: Array.from(riskyByName.values())
+      .map((item) => ({
+        ...item,
+        introducedByPaths: dedupeStrings(item.introducedByPaths).slice(0, 3)
+      }))
+      .sort((left, right) =>
+        trustScoreWeight(right.trustScore) - trustScoreWeight(left.trustScore) ||
+        right.confidence - left.confidence ||
+        left.name.localeCompare(right.name)
+      ),
+    highestTrustScore
   };
 }
 
 function assessRisk(
   metadata: PackageMetadata,
   dependencyType: RiskFactors["dependencyType"],
-  thresholds?: DepBrainConfig["risk"]
-): {
-  confidence: number;
-  trustScore: TrustScore;
-  reasons: string[];
-  reasonCodes: string[];
-  riskFactors: RiskFactors;
-} {
+  thresholds: DepBrainConfig["risk"] | undefined,
+  transitiveDependencyCount: number
+): PackageAssessment {
   const reasons: string[] = [];
   const reasonCodes: string[] = [];
   let weight = 0;
@@ -198,6 +367,7 @@ function assessRisk(
         : "high";
 
   return {
+    name: "",
     confidence,
     trustScore,
     reasons,
@@ -209,7 +379,33 @@ function assessRisk(
       versionCount: metadata.versionCount,
       recentReleaseCount: metadata.recentReleaseCount,
       hasRepository: Boolean(metadata.repository),
-      dependencyType
+      dependencyType,
+      transitiveDependencyCount,
+      riskyTransitiveCount: 0
+    }
+  };
+}
+
+function buildUnknownAssessment(
+  name: string,
+  dependencyType: RiskFactors["dependencyType"]
+): PackageAssessment {
+  return {
+    name,
+    confidence: 0.5,
+    trustScore: "high",
+    reasons: [],
+    reasonCodes: [],
+    riskFactors: {
+      daysSincePublish: null,
+      downloads: null,
+      maintainersCount: null,
+      versionCount: null,
+      recentReleaseCount: null,
+      hasRepository: false,
+      dependencyType,
+      transitiveDependencyCount: 0,
+      riskyTransitiveCount: 0
     }
   };
 }
@@ -242,16 +438,40 @@ function shouldReportRisk(
 function buildRiskRecommendation(
   reasons: string[],
   confidence: number,
-  trustScore: TrustScore
+  trustScore: TrustScore,
+  riskyTransitiveCount: number
 ): Recommendation {
   return {
     action: "review",
-    priority: trustScore === "low" || confidence >= 0.8 ? "high" : "medium",
+    priority:
+      trustScore === "low" || confidence >= 0.8 || riskyTransitiveCount >= 2
+        ? "high"
+        : "medium",
     safety: "caution",
     summary:
-      trustScore === "low"
-        ? "Low trust package; review whether to replace, pin, or monitor it closely."
-        : "Review package trust signals and decide whether to keep, replace, or monitor it.",
+      riskyTransitiveCount > 0
+        ? `Review this direct dependency and its transitive chain before upgrading or keeping it.`
+        : trustScore === "low"
+          ? "Low trust package; review whether to replace, pin, or monitor it closely."
+          : "Review package trust signals and decide whether to keep, replace, or monitor it.",
     reasons
   };
+}
+
+function trustScoreWeight(value: TrustScore): number {
+  if (value === "low") {
+    return 3;
+  }
+  if (value === "medium") {
+    return 2;
+  }
+  return 1;
+}
+
+function combineTrustScores(left: TrustScore, right: TrustScore): TrustScore {
+  return trustScoreWeight(left) >= trustScoreWeight(right) ? left : right;
+}
+
+function dedupeStrings(values: string[]): string[] {
+  return Array.from(new Set(values));
 }
