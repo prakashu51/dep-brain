@@ -16,6 +16,13 @@ export interface DependencyGraph {
   overrides: Record<string, unknown>;
   scripts: Record<string, string>;
   lockPackages: Record<string, LockPackageInstance[]>;
+  lockDependencies: Record<string, string[]>;
+}
+
+interface LockfileReadResult {
+  lockfilePath?: string;
+  lockPackages: Record<string, LockPackageInstance[]>;
+  lockDependencies: Record<string, string[]>;
 }
 
 export async function buildDependencyGraph(
@@ -33,45 +40,42 @@ export async function buildDependencyGraph(
     scripts?: Record<string, string>;
   }>(packageJsonPath);
 
-  const lockPackages = new Map<string, Map<string, LockPackageInstance>>();
-
   try {
     const packageLock = await readJsonFile<{
-      packages?: Record<string, { version?: string; name?: string }>;
-      dependencies?: Record<string, { version?: string }>;
+      packages?: Record<string, {
+        version?: string;
+        name?: string;
+        dependencies?: Record<string, string>;
+      }>;
+      dependencies?: Record<string, { version?: string; requires?: Record<string, string> }>;
     }>(lockfilePath);
 
-    for (const [packagePath, details] of Object.entries(
-      packageLock.packages ?? {}
-    )) {
-      const name = extractPackageName(packagePath);
-      const version = details.version;
+    const parsed = parseNpmLockfile(packageLock, {
+      ...packageJson.dependencies,
+      ...packageJson.devDependencies
+    });
 
-      if (!name || !version) {
-        continue;
-      }
-
-      const instances = lockPackages.get(name) ?? new Map<string, LockPackageInstance>();
-      const normalizedPath = packagePath || "node_modules/" + name;
-      instances.set(normalizedPath, { path: normalizedPath, version });
-      lockPackages.set(name, instances);
-    }
-
-    for (const [name, details] of Object.entries(packageLock.dependencies ?? {})) {
-      if (!details.version) {
-        continue;
-      }
-
-      const instances = lockPackages.get(name) ?? new Map<string, LockPackageInstance>();
-      const normalizedPath = `node_modules/${name}`;
-      instances.set(normalizedPath, { path: normalizedPath, version: details.version });
-      lockPackages.set(name, instances);
-    }
+    return {
+      rootDir,
+      packageJsonPath,
+      lockfilePath,
+      dependencies: packageJson.dependencies ?? {},
+      devDependencies: packageJson.devDependencies ?? {},
+      overrides: packageJson.overrides ?? {},
+      scripts: packageJson.scripts ?? {},
+      lockPackages: parsed.lockPackages,
+      lockDependencies: parsed.lockDependencies
+    };
   } catch {
     const fallbackLockfile = await readAlternativeLockfile(
       pnpmLockfilePath,
-      yarnLockfilePath
+      yarnLockfilePath,
+      {
+        ...packageJson.dependencies,
+        ...packageJson.devDependencies
+      }
     );
+
     return {
       rootDir,
       packageJsonPath,
@@ -80,41 +84,24 @@ export async function buildDependencyGraph(
       devDependencies: packageJson.devDependencies ?? {},
       overrides: packageJson.overrides ?? {},
       scripts: packageJson.scripts ?? {},
-      lockPackages: fallbackLockfile.lockPackages
+      lockPackages: fallbackLockfile.lockPackages,
+      lockDependencies: fallbackLockfile.lockDependencies
     };
   }
-
-  return {
-    rootDir,
-    packageJsonPath,
-    lockfilePath,
-    dependencies: packageJson.dependencies ?? {},
-    devDependencies: packageJson.devDependencies ?? {},
-    overrides: packageJson.overrides ?? {},
-    scripts: packageJson.scripts ?? {},
-    lockPackages: Object.fromEntries(
-      Array.from(lockPackages.entries()).map(([name, instances]) => [
-        name,
-        Array.from(instances.values()).sort((left, right) =>
-          left.path.localeCompare(right.path)
-        )
-      ])
-    )
-  };
 }
 
 async function readAlternativeLockfile(
   pnpmLockfilePath: string,
-  yarnLockfilePath: string
-): Promise<{
-  lockfilePath?: string;
-  lockPackages: Record<string, LockPackageInstance[]>;
-}> {
+  yarnLockfilePath: string,
+  rootDependencies: Record<string, string>
+): Promise<LockfileReadResult> {
   try {
     const content = await fs.readFile(pnpmLockfilePath, "utf8");
+    const parsed = parsePnpmLockfile(content, rootDependencies);
     return {
       lockfilePath: pnpmLockfilePath,
-      lockPackages: parsePnpmLockfile(content)
+      lockPackages: parsed.lockPackages,
+      lockDependencies: parsed.lockDependencies
     };
   } catch {
     // Try yarn.lock below.
@@ -122,15 +109,189 @@ async function readAlternativeLockfile(
 
   try {
     const content = await fs.readFile(yarnLockfilePath, "utf8");
+    const parsed = parseYarnLockfile(content, rootDependencies);
     return {
       lockfilePath: yarnLockfilePath,
-      lockPackages: parseYarnLockfile(content)
+      lockPackages: parsed.lockPackages,
+      lockDependencies: parsed.lockDependencies
     };
   } catch {
     return {
-      lockPackages: {}
+      lockPackages: {},
+      lockDependencies: {}
     };
   }
+}
+
+function parseNpmLockfile(
+  packageLock: {
+    packages?: Record<string, {
+      version?: string;
+      name?: string;
+      dependencies?: Record<string, string>;
+    }>;
+    dependencies?: Record<string, { version?: string; requires?: Record<string, string> }>;
+  },
+  rootDependencies: Record<string, string>
+): LockfileReadResult {
+  const lockPackages = new Map<string, Map<string, LockPackageInstance>>();
+  const lockDependencies = new Map<string, Set<string>>();
+
+  for (const [packagePath, details] of Object.entries(packageLock.packages ?? {})) {
+    const name = details.name ?? extractPackageName(packagePath);
+    const version = details.version;
+
+    if (name && version) {
+      const instances = lockPackages.get(name) ?? new Map<string, LockPackageInstance>();
+      const normalizedPath = packagePath || "node_modules/" + name;
+      instances.set(normalizedPath, { path: normalizedPath, version });
+      lockPackages.set(name, instances);
+    }
+
+    if (name) {
+      addDependencyNames(lockDependencies, name, Object.keys(details.dependencies ?? {}));
+    }
+  }
+
+  for (const [name, details] of Object.entries(packageLock.dependencies ?? {})) {
+    if (details.version) {
+      const instances = lockPackages.get(name) ?? new Map<string, LockPackageInstance>();
+      const normalizedPath = `node_modules/${name}`;
+      instances.set(normalizedPath, { path: normalizedPath, version: details.version });
+      lockPackages.set(name, instances);
+    }
+
+    addDependencyNames(lockDependencies, name, Object.keys(details.requires ?? {}));
+  }
+
+  addDependencyNames(lockDependencies, "__root__", Object.keys(rootDependencies));
+
+  return {
+    lockPackages: toLockPackageRecord(lockPackages),
+    lockDependencies: toDependencyRecord(lockDependencies)
+  };
+}
+
+function parsePnpmLockfile(
+  content: string,
+  rootDependencies: Record<string, string>
+): LockfileReadResult {
+  const lockPackages = new Map<string, Map<string, LockPackageInstance>>();
+  const lockDependencies = new Map<string, Set<string>>();
+  const lines = content.split(/\r?\n/);
+  let currentName: string | null = null;
+  let currentVersion: string | null = null;
+  let inDependenciesBlock = false;
+
+  for (const line of lines) {
+    const packageMatch = line.match(/^\s{2}(?:'|")?\/((?:@[^/]+\/)?[^/@'"]+)@([^('":]+)[^:]*:(?:'|")?\s*$/);
+    if (packageMatch) {
+      currentName = packageMatch[1];
+      currentVersion = packageMatch[2];
+      inDependenciesBlock = false;
+      addLockPackage(
+        lockPackages,
+        currentName,
+        `pnpm:${currentName}@${currentVersion}`,
+        currentVersion
+      );
+      continue;
+    }
+
+    if (!currentName) {
+      continue;
+    }
+
+    if (/^\s{4}(?:dependencies|optionalDependencies):\s*$/.test(line)) {
+      inDependenciesBlock = true;
+      continue;
+    }
+
+    if (/^\s{4}\S/.test(line) && !/^\s{4}(?:dependencies|optionalDependencies):\s*$/.test(line)) {
+      inDependenciesBlock = false;
+    }
+
+    if (!inDependenciesBlock) {
+      continue;
+    }
+
+    const dependencyMatch = line.match(/^\s{6}((?:@[^/]+\/)?[^:\s]+):\s*(.+)?$/);
+    if (!dependencyMatch) {
+      continue;
+    }
+
+    addDependencyNames(lockDependencies, currentName, [dependencyMatch[1]]);
+  }
+
+  addDependencyNames(lockDependencies, "__root__", Object.keys(rootDependencies));
+
+  return {
+    lockPackages: toLockPackageRecord(lockPackages),
+    lockDependencies: toDependencyRecord(lockDependencies)
+  };
+}
+
+function parseYarnLockfile(
+  content: string,
+  rootDependencies: Record<string, string>
+): LockfileReadResult {
+  const lockPackages = new Map<string, Map<string, LockPackageInstance>>();
+  const lockDependencies = new Map<string, Set<string>>();
+  const lines = content.split(/\r?\n/);
+  let currentNames: string[] = [];
+  let currentVersion: string | null = null;
+  let inDependenciesBlock = false;
+
+  for (const line of lines) {
+    if (line.trim().length === 0 || line.startsWith("#")) {
+      continue;
+    }
+
+    if (!line.startsWith(" ") && line.endsWith(":")) {
+      currentNames = extractYarnEntryNames(line.slice(0, -1));
+      currentVersion = null;
+      inDependenciesBlock = false;
+      continue;
+    }
+
+    const versionMatch = line.match(/^\s+version\s+"?([^"\s]+)"?\s*$/);
+    if (versionMatch) {
+      currentVersion = versionMatch[1];
+      for (const name of currentNames) {
+        addLockPackage(lockPackages, name, `yarn:${name}@${currentVersion}`, currentVersion);
+      }
+      continue;
+    }
+
+    if (/^\s{2}dependencies:\s*$/.test(line)) {
+      inDependenciesBlock = true;
+      continue;
+    }
+
+    if (/^\s{2}\S/.test(line) && !/^\s{2}dependencies:\s*$/.test(line)) {
+      inDependenciesBlock = false;
+    }
+
+    if (!inDependenciesBlock) {
+      continue;
+    }
+
+    const dependencyMatch = line.match(/^\s{4}((?:@[^/]+\/)?[^"\s]+)\s+/);
+    if (!dependencyMatch) {
+      continue;
+    }
+
+    for (const name of currentNames) {
+      addDependencyNames(lockDependencies, name, [dependencyMatch[1]]);
+    }
+  }
+
+  addDependencyNames(lockDependencies, "__root__", Object.keys(rootDependencies));
+
+  return {
+    lockPackages: toLockPackageRecord(lockPackages),
+    lockDependencies: toDependencyRecord(lockDependencies)
+  };
 }
 
 function extractPackageName(packagePath: string): string | null {
@@ -145,48 +306,6 @@ function extractPackageName(packagePath: string): string | null {
   }
 
   return match[1];
-}
-
-function parsePnpmLockfile(content: string): Record<string, LockPackageInstance[]> {
-  const lockPackages = new Map<string, Map<string, LockPackageInstance>>();
-
-  for (const line of content.split(/\r?\n/)) {
-    const match = line.match(/^\s{2}(?:'|")?\/((?:@[^/]+\/)?[^/@'"]+)@([^('":]+)[^:]*:(?:'|")?\s*$/);
-    if (!match) {
-      continue;
-    }
-
-    addLockPackage(lockPackages, match[1], `pnpm-lock:${match[0].trim()}`, match[2]);
-  }
-
-  return toLockPackageRecord(lockPackages);
-}
-
-function parseYarnLockfile(content: string): Record<string, LockPackageInstance[]> {
-  const lockPackages = new Map<string, Map<string, LockPackageInstance>>();
-  let currentNames: string[] = [];
-
-  for (const line of content.split(/\r?\n/)) {
-    if (line.trim().length === 0 || line.startsWith("#")) {
-      continue;
-    }
-
-    if (!line.startsWith(" ") && line.endsWith(":")) {
-      currentNames = extractYarnEntryNames(line.slice(0, -1));
-      continue;
-    }
-
-    const versionMatch = line.match(/^\s+version\s+"?([^"\s]+)"?\s*$/);
-    if (!versionMatch) {
-      continue;
-    }
-
-    for (const name of currentNames) {
-      addLockPackage(lockPackages, name, `yarn-lock:${name}@${versionMatch[1]}`, versionMatch[1]);
-    }
-  }
-
-  return toLockPackageRecord(lockPackages);
 }
 
 function extractYarnEntryNames(entry: string): string[] {
@@ -224,6 +343,22 @@ function addLockPackage(
   lockPackages.set(name, instances);
 }
 
+function addDependencyNames(
+  lockDependencies: Map<string, Set<string>>,
+  name: string,
+  dependencies: string[]
+): void {
+  if (dependencies.length === 0) {
+    return;
+  }
+
+  const entry = lockDependencies.get(name) ?? new Set<string>();
+  for (const dependency of dependencies) {
+    entry.add(dependency);
+  }
+  lockDependencies.set(name, entry);
+}
+
 function toLockPackageRecord(
   lockPackages: Map<string, Map<string, LockPackageInstance>>
 ): Record<string, LockPackageInstance[]> {
@@ -233,6 +368,17 @@ function toLockPackageRecord(
       Array.from(instances.values()).sort((left, right) =>
         left.path.localeCompare(right.path)
       )
+    ])
+  );
+}
+
+function toDependencyRecord(
+  lockDependencies: Map<string, Set<string>>
+): Record<string, string[]> {
+  return Object.fromEntries(
+    Array.from(lockDependencies.entries()).map(([name, dependencies]) => [
+      name,
+      Array.from(dependencies).sort((left, right) => left.localeCompare(right))
     ])
   );
 }

@@ -76,6 +76,7 @@ const tests = [
           graph.lockPackages.chalk.map((item) => item.version),
           ["4.1.2", "5.3.0"]
         );
+        assert.deepEqual(graph.lockDependencies.__root__, ["chalk"]);
       } finally {
         await fs.rm(tempRoot, { recursive: true, force: true });
       }
@@ -107,6 +108,60 @@ const tests = [
           graph.lockPackages.chalk.map((item) => item.version),
           ["4.1.2", "5.3.0"]
         );
+        assert.deepEqual(graph.lockDependencies.__root__, ["chalk"]);
+      } finally {
+        await fs.rm(tempRoot, { recursive: true, force: true });
+      }
+    }
+  },
+  {
+    name: "graph builder reads npm transitive dependency edges",
+    run: async () => {
+      const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "depbrain-npm-"));
+      try {
+        await fs.writeFile(
+          path.join(tempRoot, "package.json"),
+          JSON.stringify({ dependencies: { alpha: "^1.0.0" } }),
+          "utf8"
+        );
+        await fs.writeFile(
+          path.join(tempRoot, "package-lock.json"),
+          JSON.stringify({
+            name: "fixture",
+            lockfileVersion: 3,
+            packages: {
+              "": {
+                dependencies: {
+                  alpha: "^1.0.0"
+                }
+              },
+              "node_modules/alpha": {
+                name: "alpha",
+                version: "1.0.0",
+                dependencies: {
+                  beta: "^1.0.0"
+                }
+              },
+              "node_modules/beta": {
+                name: "beta",
+                version: "1.0.0",
+                dependencies: {
+                  gamma: "^1.0.0"
+                }
+              },
+              "node_modules/gamma": {
+                name: "gamma",
+                version: "1.0.0"
+              }
+            }
+          }, null, 2),
+          "utf8"
+        );
+
+        const graph = await buildDependencyGraph(tempRoot);
+        assert.deepEqual(graph.lockDependencies.__root__, ["alpha"]);
+        assert.deepEqual(graph.lockDependencies.alpha, ["beta"]);
+        assert.deepEqual(graph.lockDependencies.beta, ["gamma"]);
       } finally {
         await fs.rm(tempRoot, { recursive: true, force: true });
       }
@@ -178,6 +233,7 @@ const tests = [
       assert.equal(risks[0]?.trustScore, "low");
       assert.equal(risks[0]?.riskFactors.hasRepository, false);
       assert.equal(risks[0]?.riskFactors.dependencyType, "dependencies");
+      assert.equal(risks[0]?.riskFactors.transitiveDependencyCount, 0);
       assert.ok(risks[0]?.reasonCodes.includes("stale_release"));
     }
   },
@@ -251,6 +307,77 @@ const tests = [
       );
       assert.equal(risks.find((item) => item.name === "risky-dev")?.trustScore, "low");
       assert.equal(risks.find((item) => item.name === "stale")?.trustScore, "medium");
+    }
+  },
+  {
+    name: "risk detection aggregates risky transitive dependencies to direct owner",
+    run: async () => {
+      const risks = await findRiskDependencies(
+        {
+          rootDir: "D:/fixture",
+          packageJsonPath: "D:/fixture/package.json",
+          dependencies: {
+            alpha: "^1.0.0"
+          },
+          devDependencies: {},
+          overrides: {},
+          scripts: {},
+          lockPackages: {
+            alpha: [{ path: "node_modules/alpha", version: "1.0.0" }],
+            beta: [{ path: "node_modules/beta", version: "1.0.0" }],
+            gamma: [{ path: "node_modules/gamma", version: "1.0.0" }]
+          },
+          lockDependencies: {
+            __root__: ["alpha"],
+            alpha: ["beta"],
+            beta: ["gamma"]
+          }
+        },
+        {
+          resolvePackageMetadata: async (name) => {
+            const metadata = {
+              alpha: {
+                latestVersion: "1.0.0",
+                repository: "https://github.com/example/alpha",
+                downloads: 100000,
+                daysSincePublish: 5,
+                maintainersCount: 3,
+                versionCount: 20,
+                recentReleaseCount: 2
+              },
+              beta: {
+                latestVersion: "1.0.0",
+                repository: null,
+                downloads: 100,
+                daysSincePublish: 800,
+                maintainersCount: 1,
+                versionCount: 2,
+                recentReleaseCount: 0
+              },
+              gamma: {
+                latestVersion: "1.0.0",
+                repository: "https://github.com/example/gamma",
+                downloads: 100000,
+                daysSincePublish: 10,
+                maintainersCount: 2,
+                versionCount: 40,
+                recentReleaseCount: 3
+              }
+            };
+            return metadata[name] ?? null;
+          }
+        }
+      );
+
+      assert.equal(risks.length, 1);
+      assert.equal(risks[0].name, "alpha");
+      assert.equal(risks[0].riskyTransitiveDeps.length, 1);
+      assert.equal(risks[0].riskyTransitiveDeps[0].name, "beta");
+      assert.ok(risks[0].riskyTransitiveDeps[0].introducedByPaths[0].includes("alpha -> beta"));
+      assert.ok(risks[0].transitiveRiskScore > 0);
+      assert.equal(risks[0].riskFactors.transitiveDependencyCount, 2);
+      assert.equal(risks[0].riskFactors.riskyTransitiveCount, 1);
+      assert.ok(risks[0].reasonCodes.includes("risky_transitive_dependencies"));
     }
   },
   {
@@ -581,6 +708,7 @@ const tests = [
       assert.equal(unusedItem.recommendation.action, "remove");
       assert.ok(result.topIssues.length > 0);
       assert.ok(result.risks.every((item) => typeof item.trustScore === "string"));
+      assert.ok(result.risks.every((item) => typeof item.transitiveRiskScore === "number"));
     }
   },
   {
@@ -867,7 +995,7 @@ const tests = [
     name: "dashboard report is valid html",
     run: async () => {
       const report = renderDashboardReport({
-        outputVersion: "1.4",
+        outputVersion: "1.5",
         rootDir: "D:/fixture",
         score: 100,
         scoreBreakdown: { baseScore: 100, duplicates: 0, outdated: 0, unused: 0, risks: 0, weights: { duplicateWeight: 5, outdatedWeight: 3, unusedWeight: 4, riskWeight: 10 } },
@@ -876,7 +1004,40 @@ const tests = [
         duplicates: [],
         unused: [],
         outdated: [],
-        risks: [],
+        risks: [{
+          name: "alpha",
+          reasons: ["Introduces 1 risky transitive dependency"],
+          confidence: 0.9,
+          reasonCodes: ["risky_transitive_dependencies"],
+          explanation: ["Transitive paths: alpha -> beta"],
+          trustScore: "medium",
+          riskFactors: {
+            daysSincePublish: 1,
+            downloads: 10000,
+            maintainersCount: 2,
+            versionCount: 10,
+            recentReleaseCount: 1,
+            hasRepository: true,
+            dependencyType: "dependencies",
+            transitiveDependencyCount: 2,
+            riskyTransitiveCount: 1
+          },
+          transitiveRiskScore: 3,
+          riskyTransitiveDeps: [{
+            name: "beta",
+            trustScore: "low",
+            confidence: 0.95,
+            reasons: ["Single maintainer package"],
+            introducedByPaths: ["alpha -> beta"]
+          }],
+          recommendation: {
+            action: "review",
+            priority: "high",
+            safety: "caution",
+            summary: "Review this direct dependency and its transitive chain before upgrading or keeping it.",
+            reasons: ["Introduces 1 risky transitive dependency"]
+          }
+        }],
         suggestions: ["Keep dependencies reviewed"],
         topIssues: [],
         extensions: {},
@@ -885,6 +1046,8 @@ const tests = [
 
       assert.ok(report.includes("<!doctype html>"));
       assert.ok(report.includes("Dependency Brain Dashboard"));
+      assert.ok(report.includes("Transitive Risk Hotspots"));
+      assert.ok(report.includes("alpha -&gt; beta") || report.includes("alpha -> beta"));
     }
   },
   {

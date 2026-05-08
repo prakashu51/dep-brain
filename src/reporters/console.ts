@@ -85,8 +85,8 @@ export function renderConsoleReport(result: AnalysisResult): string {
     result.risks.map((item) =>
       formatEntry(
         item.package
-          ? `${item.name}: ${item.reasons.join("; ")} [${item.package}] [trust ${item.trustScore.toUpperCase()}]`
-          : `${item.name}: ${item.reasons.join("; ")} [trust ${item.trustScore.toUpperCase()}]`,
+          ? `${item.name}: ${item.reasons.join("; ")} [${item.package}] [trust ${item.trustScore.toUpperCase()}]${formatTransitiveRiskSuffix(item)}`
+          : `${item.name}: ${item.reasons.join("; ")} [trust ${item.trustScore.toUpperCase()}]${formatTransitiveRiskSuffix(item)}`,
         item.confidence,
         item.explanation,
         item.recommendation
@@ -105,6 +105,15 @@ export function renderConsoleReport(result: AnalysisResult): string {
   }
 
   return lines.join("\n");
+}
+
+function formatTransitiveRiskSuffix(item: AnalysisResult["risks"][number]): string {
+  if (item.riskyTransitiveDeps.length === 0) {
+    return "";
+  }
+
+  const names = item.riskyTransitiveDeps.slice(0, 3).map((entry) => entry.name).join(", ");
+  return ` [transitive score ${item.transitiveRiskScore}] [via ${names}]`;
 }
 
 function summaryLine(label: string, count: number): string {

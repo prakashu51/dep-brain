@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## 1.4.0
+
+- Added lockfile dependency-edge parsing so transitive relationships are available from npm, pnpm, and yarn lockfiles.
+- Changed risk analysis from direct-package-only output to direct-owner risk summaries with `transitiveRiskScore` and `riskyTransitiveDeps`.
+- Added transitive dependency counts and risky transitive counts to `riskFactors`.
+- Updated console, markdown, and dashboard reports to highlight transitive risk hotspots.
+- Bumped analysis output contract to `1.5` and added regression coverage for transitive risk propagation.
+
 ## 1.3.0
 
 - Added plugin diagnostics under `extensions.depBrain.plugins` for failed plugin loads and hook errors.

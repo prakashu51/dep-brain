@@ -18,6 +18,43 @@ Use this format for future entries:
 - Follow-up notes
 ```
 
+## 2026-05-08 - v1.4 transitive risk intelligence iteration
+
+### What changed
+
+- Added lockfile dependency-edge parsing for npm, pnpm, and yarn graphs.
+- Changed risk analysis to report direct dependency owners plus risky transitive chains.
+- Added `transitiveRiskScore` and `riskyTransitiveDeps` to risk output and bumped output contract to `1.5`.
+- Updated console, markdown, and dashboard reports to show transitive risk hotspots.
+- Bumped package version to `1.4.0` and updated changelog, roadmap, README, and tests.
+
+### Why it changed
+
+- v1.4 needs stronger dependency explainability so teams can see which direct package actually brings risky transitive packages into the graph.
+
+### Files touched
+
+- `src/core/graph-builder.ts`
+- `src/checks/risk.ts`
+- `src/core/analyzer.ts`
+- `src/reporters/console.ts`
+- `src/reporters/markdown.ts`
+- `src/reporters/dashboard.ts`
+- `src/index.ts`
+- `depbrain.output.schema.json`
+- `package.json`
+- `package-lock.json`
+- `CHANGELOG.md`
+- `README.md`
+- `docs/product-roadmap.md`
+- `docs/implementation-log.md`
+- `tests/run.js`
+
+### Verification completed
+
+- `cmd /c npm run typecheck`
+- `cmd /c npm run test`
+
 ## 2026-05-03 - v1.3 dashboard and plugin quality iteration
 
 ### What changed

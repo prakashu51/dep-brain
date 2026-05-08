@@ -10,6 +10,7 @@ export type {
   PackageAnalysisResult,
   Recommendation,
   RiskFactors,
+  RiskTransitiveDependency,
   ScoreBreakdown,
   RiskDependency,
   TopIssue,

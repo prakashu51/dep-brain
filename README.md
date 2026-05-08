@@ -21,6 +21,7 @@
 - Detect likely unused dependencies from source imports and scripts
 - Detect outdated packages
 - Highlight dependency risk signals
+- Show which direct dependency introduces risky transitive packages
 - Score package trust using supply-chain metadata
 - Generate a simple project health score
 - Output reports in console, JSON, Markdown, SARIF, dashboard, and top-issues formats
@@ -39,6 +40,7 @@ The long-term goal is not just to list problems, but to answer:
 - Unused dependency detection with runtime vs dev-tool heuristics
 - Outdated dependency reporting with `major`, `minor`, and `patch` classification
 - Risk analysis based on npm package metadata
+- Transitive risk ownership and path tracing for direct dependencies
 - Confidence scores, reason codes, explanations, and recommendations for findings
 - Config loading from `depbrain.config.json`
 - Ignore rules for noisy dependencies and checks
@@ -379,7 +381,7 @@ src/
 
 The project should optimize for trust, clarity, and actionability over flashy UI, generic graphs, or simply adding more checks.
 
-Risk findings now include a `trustScore` plus structured `riskFactors` such as publish recency, maintainer count, and repository presence.
+Risk findings now include a `trustScore`, structured `riskFactors`, `transitiveRiskScore`, and `riskyTransitiveDeps` path traces so teams can see which direct package introduces supply-chain risk.
 
 ## Repository Notes
 
