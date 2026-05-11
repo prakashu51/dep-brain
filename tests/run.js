@@ -199,6 +199,49 @@ const tests = [
           ["gamma", "patch"]
         ]
       );
+      assert.equal(outdated[0]?.advice.risk, "high");
+      assert.ok(Array.isArray(outdated[0]?.advice.intermediateSteps));
+    }
+  },
+  {
+    name: "outdated advisor recommends stepped major upgrade path",
+    run: async () => {
+      const outdated = await findOutdatedDependencies(
+        {
+          rootDir: "D:/fixture",
+          packageJsonPath: "D:/fixture/package.json",
+          dependencies: {
+            alpha: "^1.2.3"
+          },
+          devDependencies: {},
+          overrides: {},
+          scripts: {},
+          lockPackages: {},
+          lockDependencies: {}
+        },
+        {
+          resolvePackageMetadata: async () => ({
+            latestVersion: "3.1.0",
+            repository: "https://github.com/example/alpha",
+            homepage: null,
+            downloads: 10000,
+            daysSincePublish: 20,
+            maintainersCount: 3,
+            versionCount: 8,
+            recentReleaseCount: 2,
+            versions: ["1.2.3", "1.9.0", "2.4.0", "3.1.0"]
+          }),
+          resolveReleaseNotesText: async () => "BREAKING: migration required"
+        }
+      );
+
+      assert.equal(outdated.length, 1);
+      assert.equal(outdated[0].advice.risk, "high");
+      assert.equal(outdated[0].advice.recommendedTarget, "1.9.0");
+      assert.deepEqual(outdated[0].advice.intermediateSteps, ["1.9.0", "3.1.0"]);
+      assert.ok(outdated[0].advice.releaseNotes[0].includes("/releases/tag/v3.1.0"));
+      assert.ok(outdated[0].advice.signals.includes("semver_major"));
+      assert.ok(outdated[0].advice.signals.includes("breaking_keyword"));
     }
   },
   {
@@ -709,6 +752,7 @@ const tests = [
       assert.ok(result.topIssues.length > 0);
       assert.ok(result.risks.every((item) => typeof item.trustScore === "string"));
       assert.ok(result.risks.every((item) => typeof item.transitiveRiskScore === "number"));
+      assert.ok(result.outdated.every((item) => item.advice && typeof item.advice.risk === "string"));
     }
   },
   {
@@ -812,7 +856,7 @@ const tests = [
     name: "json report is non-empty",
     run: async () => {
       const report = renderJsonReport({
-        outputVersion: "1.4",
+        outputVersion: "1.6",
         rootDir: "D:/fixture",
         score: 100,
         scoreBreakdown: {
@@ -837,7 +881,31 @@ const tests = [
         },
         duplicates: [],
         unused: [],
-        outdated: [],
+        outdated: [{
+          name: "alpha",
+          current: "^1.0.0",
+          latest: "2.0.0",
+          updateType: "major",
+          confidence: 0.97,
+          reasonCodes: ["latest_registry_version_newer"],
+          explanation: ["A newer version is available."],
+          advice: {
+            risk: "high",
+            recommendedTarget: "1.9.0",
+            latestEvaluatedVersion: "2.0.0",
+            intermediateSteps: ["1.9.0", "2.0.0"],
+            releaseNotes: ["https://github.com/example/alpha/releases/tag/v2.0.0"],
+            signals: ["semver_major"],
+            currentRange: "^1.0.0"
+          },
+          recommendation: {
+            action: "upgrade",
+            priority: "high",
+            safety: "unknown",
+            summary: "Upgrade in steps toward 1.9.0; review breaking signals first.",
+            reasons: ["A newer version is available."]
+          }
+        }],
         risks: [],
         suggestions: [],
         topIssues: [],
@@ -875,6 +943,7 @@ const tests = [
       });
 
       assert.ok(report.trim().length > 0);
+      assert.ok(report.includes("\"advice\""));
     }
   },
   {
@@ -995,15 +1064,39 @@ const tests = [
     name: "dashboard report is valid html",
     run: async () => {
       const report = renderDashboardReport({
-        outputVersion: "1.5",
+        outputVersion: "1.6",
         rootDir: "D:/fixture",
         score: 100,
-        scoreBreakdown: { baseScore: 100, duplicates: 0, outdated: 0, unused: 0, risks: 0, weights: { duplicateWeight: 5, outdatedWeight: 3, unusedWeight: 4, riskWeight: 10 } },
+        scoreBreakdown: { baseScore: 100, duplicates: 0, outdated: 1, unused: 0, risks: 0, weights: { duplicateWeight: 5, outdatedWeight: 3, unusedWeight: 4, riskWeight: 10 } },
         policy: { passed: true, reasons: [] },
-        ownershipSummary: { duplicates: 0, unused: 0, outdated: 0, risks: 0 },
+        ownershipSummary: { duplicates: 0, unused: 0, outdated: 1, risks: 0 },
         duplicates: [],
         unused: [],
-        outdated: [],
+        outdated: [{
+          name: "alpha",
+          current: "^1.0.0",
+          latest: "2.0.0",
+          updateType: "major",
+          confidence: 0.97,
+          reasonCodes: ["latest_registry_version_newer"],
+          explanation: ["A newer version is available."],
+          advice: {
+            risk: "high",
+            recommendedTarget: "1.9.0",
+            latestEvaluatedVersion: "2.0.0",
+            intermediateSteps: ["1.9.0", "2.0.0"],
+            releaseNotes: ["https://github.com/example/alpha/releases/tag/v2.0.0"],
+            signals: ["semver_major"],
+            currentRange: "^1.0.0"
+          },
+          recommendation: {
+            action: "upgrade",
+            priority: "high",
+            safety: "unknown",
+            summary: "Upgrade in steps toward 1.9.0; review breaking signals first.",
+            reasons: ["A newer version is available."]
+          }
+        }],
         risks: [{
           name: "alpha",
           reasons: ["Introduces 1 risky transitive dependency"],
@@ -1046,6 +1139,7 @@ const tests = [
 
       assert.ok(report.includes("<!doctype html>"));
       assert.ok(report.includes("Dependency Brain Dashboard"));
+      assert.ok(report.includes("Upgrade Priorities"));
       assert.ok(report.includes("Transitive Risk Hotspots"));
       assert.ok(report.includes("alpha -&gt; beta") || report.includes("alpha -> beta"));
     }

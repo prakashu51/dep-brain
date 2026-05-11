@@ -113,7 +113,18 @@ export interface OutdatedDependency {
   confidence: number;
   reasonCodes: string[];
   explanation: string[];
+  advice: OutdatedDependencyAdvice;
   recommendation: Recommendation;
+}
+
+export interface OutdatedDependencyAdvice {
+  risk: "low" | "medium" | "high";
+  recommendedTarget: string;
+  latestEvaluatedVersion: string;
+  intermediateSteps: string[];
+  releaseNotes: string[];
+  signals: Array<"semver_major" | "breaking_keyword" | "missing_changelog">;
+  currentRange: string;
 }
 
 export interface RiskDependency {
@@ -180,7 +191,7 @@ export interface PackageAnalysisResult {
   extensions: Record<string, unknown>;
 }
 
-export const OUTPUT_VERSION = "1.5";
+export const OUTPUT_VERSION = "1.6";
 
 export interface ScoreBreakdown {
   baseScore: number;
@@ -717,6 +728,7 @@ function mapOutdatedIssues(issues: Issue[]): OutdatedDependency[] {
     confidence: normalizeConfidence(issue.confidence),
     reasonCodes: normalizeStringArray(issue.reasonCodes),
     explanation: normalizeStringArray(issue.explanation),
+    advice: normalizeOutdatedAdvice(issue.meta?.advice, issue.meta?.current, issue.meta?.latest),
     recommendation: buildOutdatedRecommendation(issue)
   }));
 }
@@ -787,24 +799,35 @@ function buildOutdatedRecommendation(issue: Issue): Recommendation {
     issue.meta?.updateType === "patch"
       ? issue.meta.updateType
       : "unknown";
+  const advice = normalizeOutdatedAdvice(issue.meta?.advice, issue.meta?.current, issue.meta?.latest);
 
   const priority =
-    updateType === "major" ? "high" : updateType === "minor" ? "medium" : "low";
+    advice.risk === "high"
+      ? "high"
+      : updateType === "major"
+        ? "high"
+        : updateType === "minor"
+          ? "medium"
+          : "low";
   const safety =
-    updateType === "patch" ? "safe" : updateType === "minor" ? "caution" : "unknown";
+    advice.risk === "high"
+      ? "unknown"
+      : updateType === "patch"
+        ? "safe"
+        : updateType === "minor"
+          ? "caution"
+          : "unknown";
 
   return {
     action: "upgrade",
     priority,
     safety,
     summary:
-      updateType === "major"
-        ? "New major version available; review breaking changes before upgrading."
-        : updateType === "minor"
-          ? "New minor version available; review release notes before upgrading."
-          : updateType === "patch"
-            ? "Routine patch update available."
-            : "Newer version available; review upgrade impact.",
+      advice.risk === "high"
+        ? `Upgrade in steps toward ${advice.recommendedTarget}; review breaking signals first.`
+        : advice.risk === "medium"
+          ? `Upgrade toward ${advice.recommendedTarget} after reviewing release notes.`
+          : `Upgrade toward ${advice.recommendedTarget}.`,
     reasons: normalizeStringArray(issue.explanation)
   };
 }
@@ -1101,6 +1124,61 @@ function normalizeRiskTransitiveDependencies(value: unknown): RiskTransitiveDepe
       };
     })
     .filter((entry): entry is RiskTransitiveDependency => entry !== null);
+}
+
+function normalizeOutdatedAdvice(
+  value: unknown,
+  current: unknown,
+  latest: unknown
+): OutdatedDependencyAdvice {
+  const fallbackLatest = typeof latest === "string" ? latest : "";
+  const fallbackCurrent = typeof current === "string" ? current : "";
+
+  if (!value || typeof value !== "object") {
+    return {
+      risk: "medium",
+      recommendedTarget: fallbackLatest,
+      latestEvaluatedVersion: fallbackLatest,
+      intermediateSteps: fallbackLatest ? [fallbackLatest] : [],
+      releaseNotes: [],
+      signals: [],
+      currentRange: fallbackCurrent
+    };
+  }
+
+  const advice = value as Partial<OutdatedDependencyAdvice>;
+  return {
+    risk:
+      advice.risk === "low" || advice.risk === "medium" || advice.risk === "high"
+        ? advice.risk
+        : "medium",
+    recommendedTarget:
+      typeof advice.recommendedTarget === "string" ? advice.recommendedTarget : fallbackLatest,
+    latestEvaluatedVersion:
+      typeof advice.latestEvaluatedVersion === "string"
+        ? advice.latestEvaluatedVersion
+        : fallbackLatest,
+    intermediateSteps: Array.isArray(advice.intermediateSteps)
+      ? advice.intermediateSteps.filter((step): step is string => typeof step === "string")
+      : fallbackLatest
+        ? [fallbackLatest]
+        : [],
+    releaseNotes: Array.isArray(advice.releaseNotes)
+      ? advice.releaseNotes.filter((url): url is string => typeof url === "string")
+      : [],
+    signals: Array.isArray(advice.signals)
+      ? advice.signals.filter(
+          (
+            signal
+          ): signal is OutdatedDependencyAdvice["signals"][number] =>
+            signal === "semver_major" ||
+            signal === "breaking_keyword" ||
+            signal === "missing_changelog"
+        )
+      : [],
+    currentRange:
+      typeof advice.currentRange === "string" ? advice.currentRange : fallbackCurrent
+  };
 }
 
 function normalizeWorkspaceUsage(value: unknown): WorkspaceDependencyUsage[] {

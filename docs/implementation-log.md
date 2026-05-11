@@ -18,6 +18,43 @@ Use this format for future entries:
 - Follow-up notes
 ```
 
+## 2026-05-11 - v1.5 update advisor iteration
+
+### What changed
+
+- Added structured `advice` data to outdated dependency output.
+- Added stepped major-upgrade recommendations, release-note URLs, and breaking-change signals.
+- Added `--advise` report mode and upgrade-priority dashboard rendering.
+- Bumped package version to `1.5.0` and output contract to `1.6`.
+- Updated changelog, README, roadmap, and regression coverage.
+
+### Why it changed
+
+- v1.5 needs to move from “newer version exists” to “here is safer upgrade path and review surface.”
+
+### Files touched
+
+- `src/checks/outdated.ts`
+- `src/utils/npm-api.ts`
+- `src/core/analyzer.ts`
+- `src/reporters/console.ts`
+- `src/reporters/markdown.ts`
+- `src/reporters/dashboard.ts`
+- `src/cli.ts`
+- `depbrain.output.schema.json`
+- `package.json`
+- `package-lock.json`
+- `CHANGELOG.md`
+- `README.md`
+- `docs/product-roadmap.md`
+- `docs/implementation-log.md`
+- `tests/run.js`
+
+### Verification completed
+
+- `cmd /c npm run typecheck`
+- `cmd /c npm run test`
+
 ## 2026-05-08 - v1.4 transitive risk intelligence iteration
 
 ### What changed

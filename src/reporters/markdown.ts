@@ -74,8 +74,8 @@ export function renderMarkdownReport(result: AnalysisResult): string {
     result.outdated.map((item) =>
       formatEntry(
         item.package
-          ? `${item.name}: ${item.current} -> ${item.latest} [${item.updateType}] [${item.package}]`
-          : `${item.name}: ${item.current} -> ${item.latest} [${item.updateType}]`,
+          ? `${item.name}: ${item.current} -> ${item.latest} [${item.updateType}] [${item.package}]${formatOutdatedAdviceSuffix(item)}`
+          : `${item.name}: ${item.current} -> ${item.latest} [${item.updateType}]${formatOutdatedAdviceSuffix(item)}`,
         item.confidence,
         item.explanation,
         item.recommendation
@@ -145,4 +145,16 @@ function formatEntry(
     : "";
 
   return `${label} | confidence ${Math.round(confidence * 100)}%${recommendationSummary}${reasonSummary}`;
+}
+
+function formatOutdatedAdviceSuffix(item: AnalysisResult["outdated"][number]): string {
+  if (!item.advice.recommendedTarget) {
+    return "";
+  }
+
+  const steps =
+    item.advice.intermediateSteps.length > 1
+      ? ` steps ${item.advice.intermediateSteps.join(" -> ")}`
+      : "";
+  return ` [advice ${item.advice.risk.toUpperCase()} target ${item.advice.recommendedTarget}${steps}]`;
 }

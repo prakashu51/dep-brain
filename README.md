@@ -25,6 +25,7 @@
 - Score package trust using supply-chain metadata
 - Generate a simple project health score
 - Output reports in console, JSON, Markdown, SARIF, dashboard, and top-issues formats
+- Output upgrade-advice reports via `--advise`
 - Gate CI with score and finding policies
 - Compare new findings against a baseline report
 
@@ -51,6 +52,7 @@ The long-term goal is not just to list problems, but to answer:
 - Markdown output via `--md`
 - SARIF output via `--sarif`
 - Static HTML dashboard via `--dashboard`
+- Upgrade advisor output via `--advise`
 - Ranked top issues via `--top`
 - Baseline mode via `--baseline`
 - Focused analysis via `--focus`
@@ -70,6 +72,7 @@ npx dep-brain analyze
 npx dep-brain analyze --json
 npx dep-brain analyze --md
 npx dep-brain analyze --top
+npx dep-brain analyze --advise
 npx dep-brain analyze ./path-to-project
 npx dep-brain analyze --config depbrain.config.json
 npx dep-brain analyze --min-score 90 --fail-on-risks
@@ -182,6 +185,14 @@ dep-brain analyze --top
 
 Shows the highest-priority actionable findings first, including confidence and next-step guidance.
 
+## Upgrade Advice Output
+
+```bash
+dep-brain analyze --advise
+```
+
+Shows recommended upgrade targets, stepped major-version paths, and release-note links when available.
+
 ## Dashboard Output
 
 ```bash
@@ -203,6 +214,8 @@ Writes a static HTML dashboard. Default path comes from `dashboard.outputPath`.
 ```
 
 Built-in `license` plugin adds license counts under `extensions.license`. Failed plugin loads and hook errors are reported under `extensions.depBrain.plugins`.
+
+Outdated results now include `advice` with `risk`, `recommendedTarget`, `intermediateSteps`, `releaseNotes`, and upgrade signals such as `semver_major`.
 
 ## Report From JSON
 

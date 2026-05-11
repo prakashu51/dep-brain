@@ -1,11 +1,13 @@
 export interface PackageMetadata {
   latestVersion: string | null;
   repository: string | null;
+  homepage: string | null;
   downloads: number | null;
   daysSincePublish: number | null;
   maintainersCount: number | null;
   versionCount: number | null;
   recentReleaseCount: number | null;
+  versions: string[];
 }
 
 const metadataCache = new Map<string, Promise<PackageMetadata | null>>();
@@ -46,6 +48,7 @@ async function fetchPackageMetadata(name: string): Promise<PackageMetadata | nul
     const packageJson = (await packageResponse.json()) as {
       "dist-tags"?: { latest?: string };
       repository?: string | { url?: string };
+      homepage?: string;
       maintainers?: Array<{ name?: string; email?: string }>;
       versions?: Record<string, unknown>;
       time?: Record<string, string>;
@@ -84,11 +87,13 @@ async function fetchPackageMetadata(name: string): Promise<PackageMetadata | nul
     return {
       latestVersion,
       repository,
+      homepage: typeof packageJson.homepage === "string" ? packageJson.homepage : null,
       downloads: downloadsJson.downloads ?? null,
       daysSincePublish,
       maintainersCount,
       versionCount,
-      recentReleaseCount
+      recentReleaseCount,
+      versions: Object.keys(packageJson.versions ?? {})
     };
   } catch {
     return null;
