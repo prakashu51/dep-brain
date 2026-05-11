@@ -21,9 +21,8 @@ export async function findOutdatedDependencies(
   graph: DependencyGraph,
   options: OutdatedOptions = {}
 ): Promise<OutdatedDependency[]> {
-  const resolveLatestVersion = options.resolveLatestVersion ?? getLatestVersion;
-  const resolvePackageMetadata =
-    options.resolvePackageMetadata ?? getPackageMetadata;
+  const resolveLatestVersion = options.resolveLatestVersion;
+  const resolvePackageMetadata = options.resolvePackageMetadata;
   const combined = {
     ...graph.dependencies,
     ...graph.devDependencies
@@ -34,8 +33,16 @@ export async function findOutdatedDependencies(
     8,
     async ([name, current]) => {
       const normalized = normalizeVersion(current);
-      const metadata = await resolvePackageMetadata(name);
-      const latest = metadata?.latestVersion ?? await resolveLatestVersion(name);
+      const metadata =
+        resolvePackageMetadata
+          ? await resolvePackageMetadata(name)
+          : resolveLatestVersion
+            ? null
+            : await getPackageMetadata(name);
+      const latest =
+        resolveLatestVersion
+          ? await resolveLatestVersion(name)
+          : metadata?.latestVersion ?? await getLatestVersion(name);
 
       if (!latest || latest === normalized) {
         return null;
