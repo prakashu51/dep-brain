@@ -69,6 +69,8 @@ async function main(): Promise<void> {
         const reportData = JSON.parse(raw);
         const output = flags.has("--top")
           ? renderTopIssuesReport(reportData)
+          : flags.has("--advise")
+            ? renderUpgradeAdviceReport(reportData)
           : flags.has("--json")
             ? JSON.stringify(reportData, null, 2)
             : flags.has("--sarif")
@@ -158,6 +160,8 @@ async function main(): Promise<void> {
       output = renderSarifReport(result);
     } else if (flags.has("--top")) {
       output = renderTopIssuesReport(result);
+    } else if (flags.has("--advise")) {
+      output = renderUpgradeAdviceReport(result);
     } else if (flags.has("--md")) {
       output = renderMarkdownReport(result);
     } else {
@@ -250,7 +254,7 @@ function printHelp(): void {
   console.log(
     "  dep-brain analyze [path] [--json] [--md] [--sarif] [--top] [--dashboard] [--focus kind] [--ci] [--out path] [--config path] [--baseline path] [--min-score n] [--fail-on-risks]"
   );
-  console.log("  dep-brain report --from <file> [--md] [--json] [--sarif] [--top] [--dashboard] [--out path]");
+  console.log("  dep-brain report --from <file> [--md] [--json] [--sarif] [--top] [--advise] [--dashboard] [--out path]");
   console.log("  dep-brain config [path] [--config path]");
   console.log("  dep-brain init [--out depbrain.config.json]");
   console.log("  dep-brain help");
@@ -261,6 +265,7 @@ function printHelp(): void {
   console.log("  --md                Output Markdown report");
   console.log("  --sarif             Output SARIF format for Code Scanning");
   console.log("  --top               Output the ranked top issues only");
+  console.log("  --advise            Output upgrade advice for outdated dependencies");
   console.log("  --dashboard         Write an HTML dashboard");
   console.log("  --dashboard-out <path> Write dashboard HTML to a custom path");
   console.log("  --focus <kind>      Run all, health, duplicates, unused, outdated, or risks");
@@ -386,4 +391,40 @@ function renderTopIssuesReport(result: Awaited<ReturnType<typeof analyzeProject>
   }
 
   return lines.join("\n");
+}
+
+function renderUpgradeAdviceReport(result: Awaited<ReturnType<typeof analyzeProject>>): string {
+  const lines: string[] = [];
+  lines.push("Upgrade Advice");
+  lines.push("");
+
+  if (!Array.isArray(result.outdated) || result.outdated.length === 0) {
+    lines.push("No outdated dependencies found.");
+    return lines.join("\n");
+  }
+
+  const sorted = [...result.outdated].sort((left, right) =>
+    compareAdviceRisk(right.advice.risk, left.advice.risk) ||
+    left.name.localeCompare(right.name)
+  );
+
+  for (const item of sorted) {
+    lines.push(
+      `- ${item.name}: ${item.current} -> ${item.latest} [${item.updateType}] [${item.advice.risk.toUpperCase()}]`
+    );
+    lines.push(`  Target: ${item.advice.recommendedTarget}`);
+    if (item.advice.intermediateSteps.length > 1) {
+      lines.push(`  Steps: ${item.advice.intermediateSteps.join(" -> ")}`);
+    }
+    if (item.advice.releaseNotes[0]) {
+      lines.push(`  Notes: ${item.advice.releaseNotes[0]}`);
+    }
+  }
+
+  return lines.join("\n");
+}
+
+function compareAdviceRisk(left: "low" | "medium" | "high", right: "low" | "medium" | "high"): number {
+  const rank = { high: 3, medium: 2, low: 1 };
+  return rank[left] - rank[right];
 }

@@ -17,6 +17,23 @@
         "reasons": { "type": "array", "items": { "type": "string" } }
       }
     },
+    "outdatedAdvice": {
+      "type": "object",
+      "required": ["risk", "recommendedTarget", "latestEvaluatedVersion", "intermediateSteps", "releaseNotes", "signals", "currentRange"],
+      "additionalProperties": false,
+      "properties": {
+        "risk": { "type": "string", "enum": ["low", "medium", "high"] },
+        "recommendedTarget": { "type": "string" },
+        "latestEvaluatedVersion": { "type": "string" },
+        "intermediateSteps": { "type": "array", "items": { "type": "string" } },
+        "releaseNotes": { "type": "array", "items": { "type": "string" } },
+        "signals": {
+          "type": "array",
+          "items": { "type": "string", "enum": ["semver_major", "breaking_keyword", "missing_changelog"] }
+        },
+        "currentRange": { "type": "string" }
+      }
+    },
     "riskFactors": {
       "type": "object",
       "required": ["daysSincePublish", "downloads", "maintainersCount", "versionCount", "recentReleaseCount", "hasRepository", "dependencyType", "transitiveDependencyCount", "riskyTransitiveCount"],
@@ -154,7 +171,7 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["name", "current", "latest", "updateType", "confidence", "reasonCodes", "explanation", "recommendation"],
+        "required": ["name", "current", "latest", "updateType", "confidence", "reasonCodes", "explanation", "advice", "recommendation"],
         "additionalProperties": false,
         "properties": {
           "name": { "type": "string" },
@@ -165,6 +182,7 @@
           "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
           "reasonCodes": { "type": "array", "items": { "type": "string" } },
           "explanation": { "type": "array", "items": { "type": "string" } },
+          "advice": { "$ref": "#/properties/outdatedAdvice" },
           "recommendation": { "$ref": "#/properties/recommendation" }
         }
       }

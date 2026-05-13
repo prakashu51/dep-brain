@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## 1.5.0
+
+- Added structured upgrade advisor data under `outdated[].advice`.
+- Added `--advise` report mode for upgrade guidance output.
+- Added stepped major-upgrade recommendations, release-note links, and breaking-change signals.
+- Updated dashboard, console, and markdown outputs with upgrade-priority guidance.
+- Bumped analysis output contract to `1.6` and added regression coverage for update advice.
+
 ## 1.4.0
 
 - Added lockfile dependency-edge parsing so transitive relationships are available from npm, pnpm, and yarn lockfiles.

@@ -238,12 +238,23 @@ Delivered:
 3. `transitiveRiskScore` and `riskyTransitiveDeps` in core output
 4. Dashboard, console, and markdown transitive risk hotspots
 
+### `v1.5` - Update Advisor
+
+Goal: explain what to upgrade, in what order, and with what caution level.
+
+Delivered:
+
+1. Structured `outdated[].advice` output
+2. `--advise` upgrade guidance report mode
+3. Stepped major-upgrade recommendations
+4. Release-note links and breaking-change signals
+5. Dashboard upgrade-priority panel
+
 Next build order:
 
-1. Smart update advisor with semver guidance and changelog links
-2. Slack and Discord notification summaries
-3. GitHub PR comments with delta analysis
-4. Safe removal autofix after stronger rollback and test guarantees
+1. Slack and Discord notification summaries
+2. GitHub PR comments with delta analysis
+3. Safe removal autofix after stronger rollback and test guarantees
 
 Park until later:
 

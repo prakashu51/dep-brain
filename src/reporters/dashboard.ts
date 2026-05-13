@@ -8,6 +8,14 @@ export function renderDashboardReport(result: AnalysisResult): string {
     .sort((left, right) => right.transitiveRiskScore - left.transitiveRiskScore)
     .map(renderTransitiveHotspot)
     .join("");
+  const upgradeAdvice = result.outdated
+    .filter((item) => item.advice.risk !== "low" || item.updateType === "major")
+    .sort((left, right) =>
+      compareAdviceRisk(right.advice.risk, left.advice.risk) ||
+      left.name.localeCompare(right.name)
+    )
+    .map(renderUpgradeAdvice)
+    .join("");
 
   return [
     "<!doctype html>",
@@ -80,6 +88,12 @@ export function renderDashboardReport(result: AnalysisResult): string {
     "</div>",
     "</section>",
     '<section class="panel">',
+    "<h2>Upgrade Priorities</h2>",
+    upgradeAdvice.length > 0
+      ? `<ul>${upgradeAdvice}</ul>`
+      : '<p class="muted">No high-risk upgrades found.</p>',
+    "</section>",
+    '<section class="panel">',
     "<h2>Transitive Risk Hotspots</h2>",
     transitiveHotspots.length > 0
       ? transitiveHotspots
@@ -121,6 +135,26 @@ function renderTransitiveHotspot(item: AnalysisResult["risks"][number]): string 
     "</ul>",
     "</div>"
   ].join("");
+}
+
+function renderUpgradeAdvice(item: AnalysisResult["outdated"][number]): string {
+  return [
+    "<li>",
+    `<strong>${escapeHtml(item.name)}</strong> <span class="muted">[${escapeHtml(item.advice.risk.toUpperCase())}]</span>`,
+    `<div>${escapeHtml(item.current)} -> ${escapeHtml(item.latest)} | target ${escapeHtml(item.advice.recommendedTarget)}</div>`,
+    item.advice.intermediateSteps.length > 1
+      ? `<div class="path">${escapeHtml(item.advice.intermediateSteps.join(" -> "))}</div>`
+      : "",
+    item.advice.releaseNotes[0]
+      ? `<div class="muted">${escapeHtml(item.advice.releaseNotes[0])}</div>`
+      : "",
+    "</li>"
+  ].join("");
+}
+
+function compareAdviceRisk(left: "low" | "medium" | "high", right: "low" | "medium" | "high"): number {
+  const rank = { high: 3, medium: 2, low: 1 };
+  return rank[left] - rank[right];
 }
 
 function escapeHtml(value: string): string {
