@@ -6,6 +6,8 @@
 
 `dep-brain` is a CLI and library for explainable dependency intelligence in JavaScript and TypeScript projects.
 
+Current release `1.5.1` adds upgrade-advice output, stepped major-version guidance, release-note links, and analysis output contract `1.6`.
+
 ## Vision
 
 `dep-brain` aims to become a dependency decision engine:
@@ -35,7 +37,7 @@ The long-term goal is not just to list problems, but to answer:
 - Can I remove it safely?
 - What should I fix first?
 
-## v1 Features
+## 1.5 Highlights
 
 - Duplicate dependency detection with lockfile instance tracking
 - Unused dependency detection with runtime vs dev-tool heuristics
@@ -167,7 +169,9 @@ Suggestions:
 dep-brain analyze --json
 ```
 
-Output includes `outputVersion` for schema stability and can be validated with:
+Output includes `outputVersion` for schema stability. `dep-brain@1.5.1` writes contract version `1.6`.
+
+Validate against:
 
 - `depbrain.output.schema.json`
 
@@ -384,17 +388,18 @@ src/
 
 ## Product Direction
 
-`dep-brain` is in its `v1.0.0` production-ready CLI stage. The roadmap delivered through v1:
+`dep-brain` is in `v1.5.1` production CLI stage, with current focus on actionable dependency decisions instead of raw issue lists.
 
-- `v0.6`: explainability and confidence scoring
-- `v0.7`: safe removal guidance and actionable recommendations
-- `v0.8`: supply-chain trust and risk intelligence
-- `v0.9`: deeper monorepo and ownership intelligence
-- `v1.0`: stable CI, ecosystem exports, and production readiness
+Recent releases added:
 
-The project should optimize for trust, clarity, and actionability over flashy UI, generic graphs, or simply adding more checks.
+- transitive risk ownership and path tracing
+- dashboard and plugin support
+- baseline, focus, and CI workflows
+- structured upgrade advice with release-note links
 
-Risk findings now include a `trustScore`, structured `riskFactors`, `transitiveRiskScore`, and `riskyTransitiveDeps` path traces so teams can see which direct package introduces supply-chain risk.
+Project should optimize for trust, clarity, and actionability over flashy UI, generic graphs, or simply adding more checks.
+
+Risk findings include `trustScore`, structured `riskFactors`, `transitiveRiskScore`, and `riskyTransitiveDeps` path traces so teams can see which direct package introduces supply-chain risk.
 
 ## Repository Notes
 
