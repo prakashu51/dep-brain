@@ -6,7 +6,7 @@
 
 `dep-brain` is a CLI and library for explainable dependency intelligence in JavaScript and TypeScript projects.
 
-Current release `1.5.0` adds upgrade-advice output, stepped major-version guidance, release-note links, and analysis output contract `1.6`.
+Current release `1.5.1` adds upgrade-advice output, stepped major-version guidance, release-note links, and analysis output contract `1.6`.
 
 ## Vision
 
@@ -169,7 +169,7 @@ Suggestions:
 dep-brain analyze --json
 ```
 
-Output includes `outputVersion` for schema stability. `dep-brain@1.5.0` writes contract version `1.6`.
+Output includes `outputVersion` for schema stability. `dep-brain@1.5.1` writes contract version `1.6`.
 
 Validate against:
 
@@ -388,7 +388,7 @@ src/
 
 ## Product Direction
 
-`dep-brain` is in `v1.5.0` production CLI stage, with current focus on actionable dependency decisions instead of raw issue lists.
+`dep-brain` is in `v1.5.1` production CLI stage, with current focus on actionable dependency decisions instead of raw issue lists.
 
 Recent releases added:
 
