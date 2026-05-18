@@ -29,10 +29,24 @@ export {
   sendConfiguredNotifications,
   shouldSendNotification
 } from "./utils/notifications.js";
+export {
+  shouldPostPrComment,
+  upsertGitHubPrComment
+} from "./utils/github.js";
+export {
+  PR_COMMENT_MARKER,
+  renderPrCommentReport
+} from "./reporters/pr-comment.js";
 export type {
   NotificationChannel,
   NotificationResult,
   NotificationSendInput,
   NotificationSender
 } from "./utils/notifications.js";
+export type {
+  GitHubPrCommentInput,
+  GitHubPrCommentResult,
+  GitHubRequest,
+  PrCommentTrigger
+} from "./utils/github.js";
 export type { WorkspacePackage } from "./utils/workspaces.js";

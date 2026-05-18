@@ -262,11 +262,23 @@ Delivered:
 4. GitHub Action inputs for notification runs
 5. Mocked regression coverage for webhook payloads
 
+### `v1.7` - GitHub PR Comments
+
+Goal: put dependency decision summaries directly into pull request review.
+
+Delivered:
+
+1. Idempotent GitHub PR comments with hidden marker updates
+2. `--pr-comment` and `--comment-on` CLI controls
+3. PR comment renderer with policy status, top issues, upgrade priorities, and baseline delta counts
+4. GitHub Action inputs for PR comments
+5. Mocked regression coverage for renderer and GitHub comment update flow
+
 Next build order:
 
-1. GitHub PR comments with delta analysis
-2. Safe removal autofix after stronger rollback and test guarantees
-3. Optional runtime tracing to improve confidence accuracy
+1. Safe removal autofix after stronger rollback and test guarantees
+2. Optional runtime tracing to improve confidence accuracy
+3. OSV/CVE adapter after ownership model proves value
 
 Park until later:
 

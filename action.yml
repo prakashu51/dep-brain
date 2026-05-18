@@ -59,6 +59,18 @@ inputs:
     description: Notification trigger. Use always, failure, or never.
     required: false
     default: "failure"
+  pr-comment:
+    description: Create or update a GitHub PR comment.
+    required: false
+    default: "false"
+  comment-on:
+    description: PR comment trigger. Use always, failure, or new-findings.
+    required: false
+    default: "failure"
+  github-token:
+    description: GitHub token for PR comments.
+    required: false
+    default: ""
 
 runs:
   using: composite
@@ -80,6 +92,9 @@ runs:
         INPUT_FAIL_ON_RISKS: ${{ inputs.fail-on-risks }}
         INPUT_NOTIFY: ${{ inputs.notify }}
         INPUT_NOTIFY_ON: ${{ inputs.notify-on }}
+        INPUT_PR_COMMENT: ${{ inputs.pr-comment }}
+        INPUT_COMMENT_ON: ${{ inputs.comment-on }}
+        GITHUB_TOKEN: ${{ inputs.github-token || github.token }}
       run: |
         set -euo pipefail
 
@@ -139,6 +154,10 @@ runs:
 
         if [ "$INPUT_NOTIFY" = "true" ]; then
           args+=("--notify" "--notify-on" "$INPUT_NOTIFY_ON")
+        fi
+
+        if [ "$INPUT_PR_COMMENT" = "true" ]; then
+          args+=("--pr-comment" "--comment-on" "$INPUT_COMMENT_ON")
         fi
 
         node "$GITHUB_ACTION_PATH/dist/cli.js" "${args[@]}"

@@ -16,6 +16,8 @@ import { renderJsonReport } from "../dist/reporters/json.js";
 import { renderMarkdownReport } from "../dist/reporters/markdown.js";
 import { renderSarifReport } from "../dist/reporters/sarif.js";
 import { renderDashboardReport } from "../dist/reporters/dashboard.js";
+import { renderPrCommentReport } from "../dist/reporters/pr-comment.js";
+import { upsertGitHubPrComment } from "../dist/utils/github.js";
 import { sendConfiguredNotifications } from "../dist/utils/notifications.js";
 import { collectProjectFiles } from "../dist/utils/file-parser.js";
 import { buildAnalysisContext } from "../dist/core/context.js";
@@ -1268,6 +1270,112 @@ const tests = [
       assert.deepEqual(calls.map((item) => item.channel), ["slack", "discord"]);
       assert.ok(calls[0].payload.text.includes("dep-brain FAIL: score 72/100"));
       assert.ok(calls[1].payload.content.includes("upgrades: high 1"));
+    }
+  },
+  {
+    name: "pr comment report includes baseline delta summary",
+    run: async () => {
+      const report = renderPrCommentReport({
+        outputVersion: "1.6",
+        rootDir: "D:/fixture",
+        score: 72,
+        scoreBreakdown: { baseScore: 100, duplicates: 5, outdated: 3, unused: 0, risks: 10, weights: { duplicateWeight: 5, outdatedWeight: 3, unusedWeight: 4, riskWeight: 10 } },
+        policy: { passed: false, reasons: ["Found 1 risky dependencies"] },
+        ownershipSummary: { duplicates: 0, unused: 0, outdated: 1, risks: 1 },
+        duplicates: [],
+        unused: [],
+        outdated: [{
+          name: "beta",
+          current: "^1.0.0",
+          latest: "2.0.0",
+          updateType: "major",
+          confidence: 0.97,
+          reasonCodes: ["latest_registry_version_newer"],
+          explanation: ["A newer version is available."],
+          advice: {
+            risk: "high",
+            recommendedTarget: "1.9.0",
+            latestEvaluatedVersion: "2.0.0",
+            intermediateSteps: ["1.9.0", "2.0.0"],
+            releaseNotes: [],
+            signals: ["semver_major"],
+            currentRange: "^1.0.0"
+          },
+          recommendation: {
+            action: "upgrade",
+            priority: "high",
+            safety: "unknown",
+            summary: "Upgrade in steps toward 1.9.0; review breaking signals first.",
+            reasons: ["A newer version is available."]
+          }
+        }],
+        risks: [],
+        suggestions: [],
+        topIssues: [{
+          kind: "outdated",
+          name: "beta",
+          priority: "high",
+          confidence: 0.97,
+          summary: "Upgrade in steps toward 1.9.0; review breaking signals first.",
+          recommendation: {
+            action: "upgrade",
+            priority: "high",
+            safety: "unknown",
+            summary: "Upgrade in steps toward 1.9.0; review breaking signals first.",
+            reasons: ["A newer version is available."]
+          }
+        }],
+        extensions: {},
+        config: defaultConfig
+      }, { hasBaseline: true });
+
+      assert.ok(report.includes("<!-- dep-brain-report -->"));
+      assert.ok(report.includes("**Policy:** FAIL"));
+      assert.ok(report.includes("**New since baseline:** duplicates 0, unused 0, outdated 1, risks 0"));
+      assert.ok(report.includes("### Upgrade Priorities"));
+    }
+  },
+  {
+    name: "github pr comment updates existing marker comment",
+    run: async () => {
+      const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "depbrain-pr-"));
+      const eventPath = path.join(tempRoot, "event.json");
+      const calls = [];
+      await fs.writeFile(
+        eventPath,
+        JSON.stringify({ pull_request: { number: 42 } }),
+        "utf8"
+      );
+
+      const result = await upsertGitHubPrComment({
+        body: "<!-- dep-brain-report -->\nupdated",
+        env: {
+          GITHUB_TOKEN: "token",
+          GITHUB_REPOSITORY: "owner/repo",
+          GITHUB_EVENT_PATH: eventPath
+        },
+        request: async (url, init) => {
+          calls.push({ url, init });
+          if (init.method === "GET") {
+            return {
+              ok: true,
+              status: 200,
+              json: async () => [{ id: 7, body: "<!-- dep-brain-report -->\nold" }]
+            };
+          }
+
+          return {
+            ok: true,
+            status: 200,
+            json: async () => ({})
+          };
+        }
+      });
+
+      assert.equal(result.status, "updated");
+      assert.equal(calls[0].url, "https://api.github.com/repos/owner/repo/issues/42/comments");
+      assert.equal(calls[1].url, "https://api.github.com/repos/owner/repo/issues/comments/7");
+      assert.equal(calls[1].init.method, "PATCH");
     }
   },
   {

@@ -18,6 +18,42 @@ Use this format for future entries:
 - Follow-up notes
 ```
 
+## 2026-05-18 - v1.7 PR comments iteration
+
+### What changed
+
+- Added idempotent GitHub PR comments with hidden marker updates.
+- Added `--pr-comment` and `--comment-on` CLI controls.
+- Added PR comment renderer with policy status, top issues, upgrade priorities, and baseline delta counts.
+- Added GitHub Action inputs for PR comments.
+- Bumped package version to `1.7.0` while keeping output contract at `1.6`.
+- Updated changelog, README, roadmap, and regression coverage.
+
+### Why it changed
+
+- v1.7 needs dependency decision summaries inside pull request review without changing analysis JSON output.
+
+### Files touched
+
+- `src/reporters/pr-comment.ts`
+- `src/utils/github.ts`
+- `src/cli.ts`
+- `src/index.ts`
+- `action.yml`
+- `package.json`
+- `package-lock.json`
+- `CHANGELOG.md`
+- `README.md`
+- `docs/product-roadmap.md`
+- `docs/implementation-log.md`
+- `tests/run.js`
+
+### Verification completed
+
+- `cmd /c npm run typecheck`
+- `cmd /c npm run test`
+- `cmd /c npm pack --dry-run`
+
 ## 2026-05-15 - v1.6 notification summaries iteration
 
 ### What changed

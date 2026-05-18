@@ -6,7 +6,7 @@
 
 `dep-brain` is a CLI and library for explainable dependency intelligence in JavaScript and TypeScript projects.
 
-Current release `1.6.0` adds Slack and Discord notification summaries while keeping analysis output contract `1.6`.
+Current release `1.7.0` adds idempotent GitHub PR comments while keeping analysis output contract `1.6`.
 
 ## Vision
 
@@ -29,6 +29,7 @@ Current release `1.6.0` adds Slack and Discord notification summaries while keep
 - Output reports in console, JSON, Markdown, SARIF, dashboard, and top-issues formats
 - Output upgrade-advice reports via `--advise`
 - Send Slack and Discord webhook summaries for CI runs
+- Create or update GitHub PR comments for pull request checks
 - Gate CI with score and finding policies
 - Compare new findings against a baseline report
 
@@ -38,7 +39,7 @@ The long-term goal is not just to list problems, but to answer:
 - Can I remove it safely?
 - What should I fix first?
 
-## 1.6 Highlights
+## 1.7 Highlights
 
 - Duplicate dependency detection with lockfile instance tracking
 - Unused dependency detection with runtime vs dev-tool heuristics
@@ -57,6 +58,7 @@ The long-term goal is not just to list problems, but to answer:
 - Static HTML dashboard via `--dashboard`
 - Upgrade advisor output via `--advise`
 - Slack and Discord notification summaries via `--notify`
+- GitHub PR comments via `--pr-comment`
 - Ranked top issues via `--top`
 - Baseline mode via `--baseline`
 - Focused analysis via `--focus`
@@ -88,6 +90,8 @@ npx dep-brain analyze --dashboard
 npx dep-brain analyze --dashboard --dashboard-out reports/depbrain.html
 npx dep-brain analyze --notify
 npx dep-brain analyze --notify --notify-on always
+npx dep-brain analyze --pr-comment
+npx dep-brain analyze --pr-comment --comment-on new-findings
 npx dep-brain analyze --focus duplicates
 npx dep-brain analyze --ci
 npx dep-brain analyze --baseline depbrain-baseline.json
@@ -173,7 +177,7 @@ Suggestions:
 dep-brain analyze --json
 ```
 
-Output includes `outputVersion` for schema stability. `dep-brain@1.6.0` writes contract version `1.6`.
+Output includes `outputVersion` for schema stability. `dep-brain@1.7.0` writes contract version `1.6`.
 
 Validate against:
 
@@ -218,6 +222,15 @@ DEPBRAIN_DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/... dep-brain anal
 ```
 
 `--notify` sends compact summaries to configured Slack and Discord webhook URLs. Default trigger is `failure`, so passing runs stay quiet unless `--notify-on always` is set.
+
+## PR Comments
+
+```bash
+dep-brain analyze --ci --pr-comment
+dep-brain analyze --ci --baseline depbrain-baseline.json --pr-comment --comment-on new-findings
+```
+
+`--pr-comment` creates or updates one GitHub pull request comment using `GITHUB_TOKEN`, `GITHUB_REPOSITORY`, and `GITHUB_EVENT_PATH`. The comment includes policy status, health score, top issues, upgrade priorities, and baseline delta counts when `--baseline` is used.
 
 ## Plugins
 
@@ -360,6 +373,7 @@ dep-brain analyze --min-score 85 --fail-on-risks
 dep-brain analyze --config depbrain.config.json
 dep-brain analyze --baseline depbrain-baseline.json --fail-on-unused
 dep-brain analyze --ci --notify
+dep-brain analyze --ci --pr-comment
 ```
 
 ## Config Debugging
@@ -406,7 +420,7 @@ src/
 
 ## Product Direction
 
-`dep-brain` is in `v1.6.0` production CLI stage, with current focus on actionable dependency decisions and CI workflow integration.
+`dep-brain` is in `v1.7.0` production CLI stage, with current focus on actionable dependency decisions and PR workflow integration.
 
 Recent releases added:
 
@@ -415,6 +429,7 @@ Recent releases added:
 - baseline, focus, and CI workflows
 - structured upgrade advice with release-note links
 - Slack and Discord notification summaries
+- idempotent GitHub PR comments
 
 Project should optimize for trust, clarity, and actionability over flashy UI, generic graphs, or simply adding more checks.
 

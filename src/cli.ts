@@ -5,8 +5,10 @@ import type { AnalysisFocus, DepBrainBaseline } from "./core/analyzer.js";
 import { renderConsoleReport } from "./reporters/console.js";
 import { renderJsonReport } from "./reporters/json.js";
 import { renderMarkdownReport } from "./reporters/markdown.js";
+import { renderPrCommentReport } from "./reporters/pr-comment.js";
 import { renderSarifReport } from "./reporters/sarif.js";
 import { renderDashboardReport } from "./reporters/dashboard.js";
+import { shouldPostPrComment, upsertGitHubPrComment, type PrCommentTrigger } from "./utils/github.js";
 import { sendConfiguredNotifications } from "./utils/notifications.js";
 import { defaultConfig, type DepBrainConfig, type DepBrainConfigOverrides } from "./utils/config.js";
 import { promises as fs } from "node:fs";
@@ -198,6 +200,31 @@ async function main(): Promise<void> {
       }
     }
 
+    if (flags.has("--pr-comment")) {
+      const trigger = parsePrCommentTrigger(optionValues.get("--comment-on"));
+      const newFindingsCount = countFindings(result);
+      if (
+        shouldPostPrComment({
+          trigger,
+          policyPassed: result.policy.passed,
+          newFindingsCount
+        })
+      ) {
+        const commentResult = await upsertGitHubPrComment({
+          body: renderPrCommentReport(result, { hasBaseline: Boolean(baseline) })
+        });
+        if (commentResult.status === "created" || commentResult.status === "updated") {
+          console.error(`PR comment ${commentResult.status}.`);
+        } else {
+          console.error(
+            `PR comment skipped: ${commentResult.reason ?? "unknown reason"}`
+          );
+        }
+      } else {
+        console.error(`PR comment skipped: ${trigger} trigger did not match.`);
+      }
+    }
+
     if (!result.policy.passed) {
       process.exitCode = 1;
     }
@@ -285,7 +312,7 @@ function printHelp(): void {
   console.log("");
   console.log("Usage:");
   console.log(
-    "  dep-brain analyze [path] [--json] [--md] [--sarif] [--top] [--dashboard] [--notify] [--notify-on kind] [--focus kind] [--ci] [--out path] [--config path] [--baseline path] [--min-score n] [--fail-on-risks]"
+    "  dep-brain analyze [path] [--json] [--md] [--sarif] [--top] [--dashboard] [--notify] [--pr-comment] [--comment-on kind] [--focus kind] [--ci] [--out path] [--config path] [--baseline path] [--min-score n] [--fail-on-risks]"
   );
   console.log("  dep-brain report --from <file> [--md] [--json] [--sarif] [--top] [--advise] [--dashboard] [--out path]");
   console.log("  dep-brain config [path] [--config path]");
@@ -303,6 +330,8 @@ function printHelp(): void {
   console.log("  --dashboard-out <path> Write dashboard HTML to a custom path");
   console.log("  --notify            Send Slack or Discord webhook summaries");
   console.log("  --notify-on <kind>  Send notifications on always, failure, or never");
+  console.log("  --pr-comment        Create or update a GitHub PR comment");
+  console.log("  --comment-on <kind> Post PR comment on always, failure, or new-findings");
   console.log("  --focus <kind>      Run all, health, duplicates, unused, outdated, or risks");
   console.log("  --ci                Apply low-noise CI defaults");
   console.log("  --config <path>     Path to depbrain.config.json");
@@ -462,4 +491,21 @@ function renderUpgradeAdviceReport(result: Awaited<ReturnType<typeof analyzeProj
 function compareAdviceRisk(left: "low" | "medium" | "high", right: "low" | "medium" | "high"): number {
   const rank = { high: 3, medium: 2, low: 1 };
   return rank[left] - rank[right];
+}
+
+function parsePrCommentTrigger(value: string | undefined): PrCommentTrigger {
+  if (value === "always" || value === "failure" || value === "new-findings") {
+    return value;
+  }
+
+  return "failure";
+}
+
+function countFindings(result: Awaited<ReturnType<typeof analyzeProject>>): number {
+  return (
+    result.duplicates.length +
+    result.unused.length +
+    result.outdated.length +
+    result.risks.length
+  );
 }

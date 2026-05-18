@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## 1.7.0
+
+- Added idempotent GitHub PR comments with `--pr-comment`.
+- Added `--comment-on` trigger support for `always`, `failure`, and `new-findings`.
+- Added PR comment markdown renderer with top issues, policy reasons, upgrade priorities, and baseline delta counts.
+- Added GitHub Action inputs for PR comment runs.
+- Kept analysis output contract at `1.6` because no JSON result fields changed.
+
 ## 1.6.0
 
 - Added Slack and Discord webhook notification summaries.
