@@ -36,6 +36,8 @@
     "outputPath": "depbrain-dashboard.html"
   },
   "notifications": {
+    "enabled": false,
+    "on": "failure",
     "slackWebhookEnv": "DEPBRAIN_SLACK_WEBHOOK_URL",
     "discordWebhookEnv": "DEPBRAIN_DISCORD_WEBHOOK_URL"
   },

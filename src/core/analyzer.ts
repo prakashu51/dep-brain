@@ -409,6 +409,10 @@ function mergeConfig(
       outputPath: overrides.dashboard?.outputPath ?? base.dashboard.outputPath
     },
     notifications: {
+      enabled:
+        overrides.notifications?.enabled ?? base.notifications.enabled,
+      on:
+        overrides.notifications?.on ?? base.notifications.on,
       slackWebhookEnv:
         overrides.notifications?.slackWebhookEnv ?? base.notifications.slackWebhookEnv,
       discordWebhookEnv:

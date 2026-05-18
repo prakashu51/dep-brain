@@ -6,7 +6,7 @@
 
 `dep-brain` is a CLI and library for explainable dependency intelligence in JavaScript and TypeScript projects.
 
-Current release `1.5.1` adds upgrade-advice output, stepped major-version guidance, release-note links, and analysis output contract `1.6`.
+Current release `1.6.0` adds Slack and Discord notification summaries while keeping analysis output contract `1.6`.
 
 ## Vision
 
@@ -28,6 +28,7 @@ Current release `1.5.1` adds upgrade-advice output, stepped major-version guidan
 - Generate a simple project health score
 - Output reports in console, JSON, Markdown, SARIF, dashboard, and top-issues formats
 - Output upgrade-advice reports via `--advise`
+- Send Slack and Discord webhook summaries for CI runs
 - Gate CI with score and finding policies
 - Compare new findings against a baseline report
 
@@ -37,7 +38,7 @@ The long-term goal is not just to list problems, but to answer:
 - Can I remove it safely?
 - What should I fix first?
 
-## 1.5 Highlights
+## 1.6 Highlights
 
 - Duplicate dependency detection with lockfile instance tracking
 - Unused dependency detection with runtime vs dev-tool heuristics
@@ -55,6 +56,7 @@ The long-term goal is not just to list problems, but to answer:
 - SARIF output via `--sarif`
 - Static HTML dashboard via `--dashboard`
 - Upgrade advisor output via `--advise`
+- Slack and Discord notification summaries via `--notify`
 - Ranked top issues via `--top`
 - Baseline mode via `--baseline`
 - Focused analysis via `--focus`
@@ -84,6 +86,8 @@ npx dep-brain analyze --json --out depbrain.json
 npx dep-brain analyze --sarif --out depbrain.sarif
 npx dep-brain analyze --dashboard
 npx dep-brain analyze --dashboard --dashboard-out reports/depbrain.html
+npx dep-brain analyze --notify
+npx dep-brain analyze --notify --notify-on always
 npx dep-brain analyze --focus duplicates
 npx dep-brain analyze --ci
 npx dep-brain analyze --baseline depbrain-baseline.json
@@ -169,7 +173,7 @@ Suggestions:
 dep-brain analyze --json
 ```
 
-Output includes `outputVersion` for schema stability. `dep-brain@1.5.1` writes contract version `1.6`.
+Output includes `outputVersion` for schema stability. `dep-brain@1.6.0` writes contract version `1.6`.
 
 Validate against:
 
@@ -205,6 +209,15 @@ dep-brain analyze --dashboard --dashboard-out reports/depbrain.html
 ```
 
 Writes a static HTML dashboard. Default path comes from `dashboard.outputPath`.
+
+## Notifications
+
+```bash
+DEPBRAIN_SLACK_WEBHOOK_URL=https://hooks.slack.com/services/... dep-brain analyze --notify
+DEPBRAIN_DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/... dep-brain analyze --notify --notify-on always
+```
+
+`--notify` sends compact summaries to configured Slack and Discord webhook URLs. Default trigger is `failure`, so passing runs stay quiet unless `--notify-on always` is set.
 
 ## Plugins
 
@@ -276,6 +289,8 @@ Create a `depbrain.config.json` file in the project root:
     "outputPath": "depbrain-dashboard.html"
   },
   "notifications": {
+    "enabled": false,
+    "on": "failure",
     "slackWebhookEnv": "DEPBRAIN_SLACK_WEBHOOK_URL",
     "discordWebhookEnv": "DEPBRAIN_DISCORD_WEBHOOK_URL"
   },
@@ -315,6 +330,8 @@ Supported sections:
 - `risk.lowTrustWeightThreshold`
 - `risk.mediumTrustWeightThreshold`
 - `dashboard.outputPath`
+- `notifications.enabled`
+- `notifications.on`
 - `notifications.slackWebhookEnv`
 - `notifications.discordWebhookEnv`
 - `scoring.duplicateWeight`
@@ -342,6 +359,7 @@ dep-brain analyze --fail-on-unused
 dep-brain analyze --min-score 85 --fail-on-risks
 dep-brain analyze --config depbrain.config.json
 dep-brain analyze --baseline depbrain-baseline.json --fail-on-unused
+dep-brain analyze --ci --notify
 ```
 
 ## Config Debugging
@@ -388,7 +406,7 @@ src/
 
 ## Product Direction
 
-`dep-brain` is in `v1.5.1` production CLI stage, with current focus on actionable dependency decisions instead of raw issue lists.
+`dep-brain` is in `v1.6.0` production CLI stage, with current focus on actionable dependency decisions and CI workflow integration.
 
 Recent releases added:
 
@@ -396,6 +414,7 @@ Recent releases added:
 - dashboard and plugin support
 - baseline, focus, and CI workflows
 - structured upgrade advice with release-note links
+- Slack and Discord notification summaries
 
 Project should optimize for trust, clarity, and actionability over flashy UI, generic graphs, or simply adding more checks.
 

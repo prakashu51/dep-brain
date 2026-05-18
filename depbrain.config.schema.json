@@ -68,6 +68,8 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
+        "enabled": { "type": "boolean" },
+        "on": { "type": "string", "enum": ["always", "failure", "never"] },
         "slackWebhookEnv": { "type": "string" },
         "discordWebhookEnv": { "type": "string" }
       }

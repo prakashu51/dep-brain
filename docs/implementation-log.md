@@ -18,6 +18,45 @@ Use this format for future entries:
 - Follow-up notes
 ```
 
+## 2026-05-15 - v1.6 notification summaries iteration
+
+### What changed
+
+- Added Slack and Discord webhook notification summaries.
+- Added `--notify` and `--notify-on` CLI controls.
+- Added notification config fields for enablement and trigger policy.
+- Added GitHub Action inputs for notification runs.
+- Bumped package version to `1.6.0` while keeping output contract at `1.6`.
+- Updated changelog, README, roadmap, schemas, sample config, and regression coverage.
+
+### Why it changed
+
+- v1.6 needs CI-ready team notification summaries without changing analysis JSON output.
+
+### Files touched
+
+- `src/utils/notifications.ts`
+- `src/utils/config.ts`
+- `src/core/analyzer.ts`
+- `src/cli.ts`
+- `src/index.ts`
+- `depbrain.config.json`
+- `depbrain.config.schema.json`
+- `action.yml`
+- `package.json`
+- `package-lock.json`
+- `CHANGELOG.md`
+- `README.md`
+- `docs/product-roadmap.md`
+- `docs/implementation-log.md`
+- `tests/run.js`
+
+### Verification completed
+
+- `cmd /c npm run typecheck`
+- `cmd /c npm run test`
+- `cmd /c npm pack --dry-run`
+
 ## 2026-05-11 - v1.5 update advisor iteration
 
 ### What changed
