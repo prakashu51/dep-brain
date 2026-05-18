@@ -40,6 +40,8 @@ export interface DepBrainConfig {
     outputPath: string;
   };
   notifications: {
+    enabled: boolean;
+    on: "always" | "failure" | "never";
     slackWebhookEnv: string;
     discordWebhookEnv: string;
   };
@@ -104,6 +106,8 @@ export const defaultConfig: DepBrainConfig = {
     outputPath: "depbrain-dashboard.html"
   },
   notifications: {
+    enabled: false,
+    on: "failure",
     slackWebhookEnv: "DEPBRAIN_SLACK_WEBHOOK_URL",
     discordWebhookEnv: "DEPBRAIN_DISCORD_WEBHOOK_URL"
   },
@@ -250,6 +254,14 @@ function normalizeConfig(loaded: Partial<DepBrainConfig>): DepBrainConfig {
       )
     },
     notifications: {
+      enabled: normalizeBoolean(
+        loaded.notifications?.enabled,
+        defaultConfig.notifications.enabled
+      ),
+      on: normalizeNotificationTrigger(
+        loaded.notifications?.on,
+        defaultConfig.notifications.on
+      ),
       slackWebhookEnv: normalizeString(
         loaded.notifications?.slackWebhookEnv,
         defaultConfig.notifications.slackWebhookEnv
@@ -307,4 +319,13 @@ function normalizeNumber(value: unknown, fallback: number): number {
 
 function normalizeString(value: unknown, fallback: string): string {
   return typeof value === "string" && value.trim().length > 0 ? value : fallback;
+}
+
+function normalizeNotificationTrigger(
+  value: unknown,
+  fallback: DepBrainConfig["notifications"]["on"]
+): DepBrainConfig["notifications"]["on"] {
+  return value === "always" || value === "failure" || value === "never"
+    ? value
+    : fallback;
 }

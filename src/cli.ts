@@ -7,6 +7,7 @@ import { renderJsonReport } from "./reporters/json.js";
 import { renderMarkdownReport } from "./reporters/markdown.js";
 import { renderSarifReport } from "./reporters/sarif.js";
 import { renderDashboardReport } from "./reporters/dashboard.js";
+import { sendConfiguredNotifications } from "./utils/notifications.js";
 import { defaultConfig, type DepBrainConfig, type DepBrainConfigOverrides } from "./utils/config.js";
 import { promises as fs } from "node:fs";
 import path from "node:path";
@@ -180,6 +181,23 @@ async function main(): Promise<void> {
       );
     }
 
+    if (result.config.notifications.enabled) {
+      const notificationResults = await sendConfiguredNotifications(result);
+      for (const item of notificationResults) {
+        if (item.status === "sent") {
+          console.error(`Notification sent to ${item.channel}.`);
+        } else if (item.status === "failed") {
+          console.error(
+            `Notification failed for ${item.channel}: ${item.reason ?? "unknown error"}`
+          );
+        } else if (item.reason?.includes("webhook env")) {
+          console.error(
+            `Notification skipped for ${item.channel}: ${item.reason}`
+          );
+        }
+      }
+    }
+
     if (!result.policy.passed) {
       process.exitCode = 1;
     }
@@ -206,6 +224,7 @@ function buildCliConfig(
 ): DepBrainConfigOverrides {
   const minScore = optionValues.get("--min-score");
   const policy: Partial<DepBrainConfig["policy"]> = {};
+  const notifications: Partial<DepBrainConfig["notifications"]> = {};
 
   if (minScore) {
     policy.minScore = Number(minScore);
@@ -233,8 +252,22 @@ function buildCliConfig(
     policy.failOnRisks = true;
   }
 
+  if (flags.has("--notify")) {
+    notifications.enabled = true;
+  }
+
+  const notifyOn = optionValues.get("--notify-on");
+  if (
+    notifyOn === "always" ||
+    notifyOn === "failure" ||
+    notifyOn === "never"
+  ) {
+    notifications.on = notifyOn;
+  }
+
   return {
-    policy
+    policy,
+    notifications
   };
 }
 
@@ -252,7 +285,7 @@ function printHelp(): void {
   console.log("");
   console.log("Usage:");
   console.log(
-    "  dep-brain analyze [path] [--json] [--md] [--sarif] [--top] [--dashboard] [--focus kind] [--ci] [--out path] [--config path] [--baseline path] [--min-score n] [--fail-on-risks]"
+    "  dep-brain analyze [path] [--json] [--md] [--sarif] [--top] [--dashboard] [--notify] [--notify-on kind] [--focus kind] [--ci] [--out path] [--config path] [--baseline path] [--min-score n] [--fail-on-risks]"
   );
   console.log("  dep-brain report --from <file> [--md] [--json] [--sarif] [--top] [--advise] [--dashboard] [--out path]");
   console.log("  dep-brain config [path] [--config path]");
@@ -268,6 +301,8 @@ function printHelp(): void {
   console.log("  --advise            Output upgrade advice for outdated dependencies");
   console.log("  --dashboard         Write an HTML dashboard");
   console.log("  --dashboard-out <path> Write dashboard HTML to a custom path");
+  console.log("  --notify            Send Slack or Discord webhook summaries");
+  console.log("  --notify-on <kind>  Send notifications on always, failure, or never");
   console.log("  --focus <kind>      Run all, health, duplicates, unused, outdated, or risks");
   console.log("  --ci                Apply low-noise CI defaults");
   console.log("  --config <path>     Path to depbrain.config.json");

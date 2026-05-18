@@ -250,11 +250,23 @@ Delivered:
 4. Release-note links and breaking-change signals
 5. Dashboard upgrade-priority panel
 
+### `v1.6` - CI Notifications
+
+Goal: push dependency decision summaries into team workflow channels.
+
+Delivered:
+
+1. Slack and Discord webhook summaries
+2. `--notify` and `--notify-on` CLI controls
+3. Configurable notification trigger policy
+4. GitHub Action inputs for notification runs
+5. Mocked regression coverage for webhook payloads
+
 Next build order:
 
-1. Slack and Discord notification summaries
-2. GitHub PR comments with delta analysis
-3. Safe removal autofix after stronger rollback and test guarantees
+1. GitHub PR comments with delta analysis
+2. Safe removal autofix after stronger rollback and test guarantees
+3. Optional runtime tracing to improve confidence accuracy
 
 Park until later:
 

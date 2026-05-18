@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## 1.6.0
+
+- Added Slack and Discord webhook notification summaries.
+- Added `--notify` and `--notify-on` CLI controls.
+- Added notification config with `enabled`, `on`, `slackWebhookEnv`, and `discordWebhookEnv`.
+- Added GitHub Action inputs for notification runs.
+- Kept analysis output contract at `1.6` because no JSON result fields changed.
+
 ## 1.5.0
 
 - Added structured upgrade advisor data under `outdated[].advice`.

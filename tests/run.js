@@ -16,6 +16,7 @@ import { renderJsonReport } from "../dist/reporters/json.js";
 import { renderMarkdownReport } from "../dist/reporters/markdown.js";
 import { renderSarifReport } from "../dist/reporters/sarif.js";
 import { renderDashboardReport } from "../dist/reporters/dashboard.js";
+import { sendConfiguredNotifications } from "../dist/utils/notifications.js";
 import { collectProjectFiles } from "../dist/utils/file-parser.js";
 import { buildAnalysisContext } from "../dist/core/context.js";
 import { defaultConfig } from "../dist/utils/config.js";
@@ -1142,6 +1143,131 @@ const tests = [
       assert.ok(report.includes("Upgrade Priorities"));
       assert.ok(report.includes("Transitive Risk Hotspots"));
       assert.ok(report.includes("alpha -&gt; beta") || report.includes("alpha -> beta"));
+    }
+  },
+  {
+    name: "notifications send compact webhook summaries",
+    run: async () => {
+      const calls = [];
+      const result = {
+        outputVersion: "1.6",
+        rootDir: "D:/fixture",
+        score: 72,
+        scoreBreakdown: { baseScore: 100, duplicates: 5, outdated: 3, unused: 0, risks: 10, weights: { duplicateWeight: 5, outdatedWeight: 3, unusedWeight: 4, riskWeight: 10 } },
+        policy: { passed: false, reasons: ["Found 1 risky dependencies"] },
+        ownershipSummary: { duplicates: 1, unused: 0, outdated: 1, risks: 1 },
+        duplicates: [{
+          name: "alpha",
+          versions: ["1.0.0", "2.0.0"],
+          instances: [],
+          workspaceUsage: [],
+          rootCause: [],
+          confidence: 0.9,
+          reasonCodes: ["multiple_lockfile_versions"],
+          explanation: ["Multiple versions are installed."],
+          recommendation: {
+            action: "consolidate",
+            priority: "medium",
+            safety: "caution",
+            summary: "Consolidate toward 2.0.0; 0 installation paths are affected.",
+            reasons: ["Multiple versions are installed."]
+          }
+        }],
+        unused: [],
+        outdated: [{
+          name: "beta",
+          current: "^1.0.0",
+          latest: "2.0.0",
+          updateType: "major",
+          confidence: 0.97,
+          reasonCodes: ["latest_registry_version_newer"],
+          explanation: ["A newer version is available."],
+          advice: {
+            risk: "high",
+            recommendedTarget: "1.9.0",
+            latestEvaluatedVersion: "2.0.0",
+            intermediateSteps: ["1.9.0", "2.0.0"],
+            releaseNotes: [],
+            signals: ["semver_major"],
+            currentRange: "^1.0.0"
+          },
+          recommendation: {
+            action: "upgrade",
+            priority: "high",
+            safety: "unknown",
+            summary: "Upgrade in steps toward 1.9.0; review breaking signals first.",
+            reasons: ["A newer version is available."]
+          }
+        }],
+        risks: [{
+          name: "gamma",
+          reasons: ["Low trust package"],
+          confidence: 0.91,
+          reasonCodes: ["low_trust_score"],
+          explanation: ["Package has low trust signals."],
+          trustScore: "low",
+          riskFactors: {
+            daysSincePublish: 900,
+            downloads: 10,
+            maintainersCount: 1,
+            versionCount: 2,
+            recentReleaseCount: 0,
+            hasRepository: false,
+            dependencyType: "dependencies",
+            transitiveDependencyCount: 0,
+            riskyTransitiveCount: 0
+          },
+          transitiveRiskScore: 0,
+          riskyTransitiveDeps: [],
+          recommendation: {
+            action: "review",
+            priority: "high",
+            safety: "caution",
+            summary: "Low trust package; review whether to replace, pin, or monitor it closely.",
+            reasons: ["Package has low trust signals."]
+          }
+        }],
+        suggestions: [],
+        topIssues: [{
+          kind: "risk",
+          name: "gamma",
+          priority: "high",
+          confidence: 0.91,
+          summary: "Low trust package; review whether to replace, pin, or monitor it closely.",
+          trustScore: "low",
+          recommendation: {
+            action: "review",
+            priority: "high",
+            safety: "caution",
+            summary: "Low trust package; review whether to replace, pin, or monitor it closely.",
+            reasons: ["Package has low trust signals."]
+          }
+        }],
+        extensions: {},
+        config: {
+          ...defaultConfig,
+          notifications: {
+            ...defaultConfig.notifications,
+            enabled: true,
+            on: "failure"
+          }
+        }
+      };
+
+      const statuses = await sendConfiguredNotifications(result, {
+        env: {
+          DEPBRAIN_SLACK_WEBHOOK_URL: "https://example.invalid/slack",
+          DEPBRAIN_DISCORD_WEBHOOK_URL: "https://example.invalid/discord"
+        },
+        sender: async (input) => {
+          calls.push(input);
+        }
+      });
+
+      assert.equal(statuses.every((item) => item.status === "sent"), true);
+      assert.deepEqual(calls.map((item) => item.channel), ["slack", "discord"]);
+      assert.ok(calls[0].payload.text.includes("dep-brain FAIL: score 72/100"));
+      assert.ok(calls[1].payload.content.includes("upgrades: high 1"));
     }
   },
   {
