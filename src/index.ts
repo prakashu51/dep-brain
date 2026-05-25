@@ -1,4 +1,9 @@
 export { analyzeProject } from "./core/analyzer.js";
+export {
+  buildUnusedFixPlan,
+  detectPackageManager,
+  renderFixPlan
+} from "./core/fix-plan.js";
 export type {
   AnalysisOptions,
   AnalysisFocus,
@@ -23,6 +28,13 @@ export { OUTPUT_VERSION } from "./core/analyzer.js";
 export { PluginManager } from "./core/plugin-manager.js";
 export type { DepBrainPlugin, PluginDiagnostic, ProjectContext } from "./core/plugin-manager.js";
 export type { AnalysisContext, CheckResult, Issue } from "./core/types.js";
+export type {
+  FixPlan,
+  FixPlanItem,
+  FixPlanOptions,
+  PackageManager,
+  SkippedFixItem
+} from "./core/fix-plan.js";
 export type { DepBrainConfig, DepBrainConfigOverrides } from "./utils/config.js";
 export {
   renderNotificationMessage,

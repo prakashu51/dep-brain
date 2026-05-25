@@ -18,6 +18,40 @@ Use this format for future entries:
 - Follow-up notes
 ```
 
+## 2026-05-18 - v1.8 safe removal preview iteration
+
+### What changed
+
+- Added `dep-brain fix --unused --dry-run`.
+- Added npm, pnpm, and yarn uninstall command rendering.
+- Added workspace-aware command rendering for unused dependency fix plans.
+- Added `--include-caution` and JSON fix-plan output.
+- Bumped package version to `1.8.0` while keeping output contract at `1.6`.
+- Updated changelog, README, roadmap, and regression coverage.
+
+### Why it changed
+
+- v1.8 needs reviewable unused dependency removal commands before any mutating autofix mode.
+
+### Files touched
+
+- `src/core/fix-plan.ts`
+- `src/cli.ts`
+- `src/index.ts`
+- `package.json`
+- `package-lock.json`
+- `CHANGELOG.md`
+- `README.md`
+- `docs/product-roadmap.md`
+- `docs/implementation-log.md`
+- `tests/run.js`
+
+### Verification completed
+
+- `cmd /c npm run typecheck`
+- `cmd /c npm run test`
+- `cmd /c npm pack --dry-run`
+
 ## 2026-05-18 - v1.7 PR comments iteration
 
 ### What changed

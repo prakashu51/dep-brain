@@ -8,6 +8,7 @@ import { findOutdatedDependencies } from "../dist/checks/outdated.js";
 import { findRiskDependencies } from "../dist/checks/risk.js";
 import { findUnusedDependencies } from "../dist/checks/unused.js";
 import { analyzeProject } from "../dist/core/analyzer.js";
+import { buildUnusedFixPlan, renderFixPlan } from "../dist/core/fix-plan.js";
 import { buildDependencyGraph } from "../dist/core/graph-builder.js";
 import { calculateHealthScore } from "../dist/core/scorer.js";
 import { loadDepBrainConfig } from "../dist/utils/config.js";
@@ -1376,6 +1377,130 @@ const tests = [
       assert.equal(calls[0].url, "https://api.github.com/repos/owner/repo/issues/42/comments");
       assert.equal(calls[1].url, "https://api.github.com/repos/owner/repo/issues/comments/7");
       assert.equal(calls[1].init.method, "PATCH");
+    }
+  },
+  {
+    name: "unused fix plan renders safe npm removals",
+    run: async () => {
+      const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "depbrain-fix-npm-"));
+      await fs.writeFile(path.join(tempRoot, "package-lock.json"), "{}", "utf8");
+
+      const plan = await buildUnusedFixPlan({
+        outputVersion: "1.6",
+        rootDir: tempRoot,
+        score: 100,
+        scoreBreakdown: { baseScore: 100, duplicates: 0, outdated: 0, unused: 1, risks: 0, weights: { duplicateWeight: 5, outdatedWeight: 3, unusedWeight: 4, riskWeight: 10 } },
+        policy: { passed: true, reasons: [] },
+        ownershipSummary: { duplicates: 0, unused: 1, outdated: 0, risks: 0 },
+        duplicates: [],
+        unused: [{
+          name: "unused-lib",
+          section: "devDependencies",
+          confidence: 0.95,
+          reasonCodes: ["no_source_reference"],
+          explanation: ["No source reference found."],
+          recommendation: {
+            action: "remove",
+            priority: "high",
+            safety: "safe",
+            summary: "Safe to remove from devDependencies.",
+            reasons: ["No source reference found."]
+          }
+        }],
+        outdated: [],
+        risks: [],
+        suggestions: [],
+        topIssues: [],
+        extensions: {},
+        config: defaultConfig
+      });
+
+      assert.equal(plan.packageManager, "npm");
+      assert.deepEqual(plan.commands, ["npm uninstall unused-lib"]);
+      assert.equal(renderFixPlan(plan).includes("npm uninstall unused-lib"), true);
+    }
+  },
+  {
+    name: "unused fix plan skips caution unless requested",
+    run: async () => {
+      const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "depbrain-fix-pnpm-"));
+      await fs.writeFile(path.join(tempRoot, "pnpm-lock.yaml"), "lockfileVersion: '9.0'", "utf8");
+      const result = {
+        outputVersion: "1.6",
+        rootDir: tempRoot,
+        score: 100,
+        scoreBreakdown: { baseScore: 100, duplicates: 0, outdated: 0, unused: 1, risks: 0, weights: { duplicateWeight: 5, outdatedWeight: 3, unusedWeight: 4, riskWeight: 10 } },
+        policy: { passed: true, reasons: [] },
+        ownershipSummary: { duplicates: 0, unused: 1, outdated: 0, risks: 0 },
+        duplicates: [],
+        unused: [{
+          name: "unused-runtime",
+          section: "dependencies",
+          package: "pkg-a",
+          confidence: 0.8,
+          reasonCodes: ["no_source_reference"],
+          explanation: ["No source reference found."],
+          recommendation: {
+            action: "remove",
+            priority: "medium",
+            safety: "caution",
+            summary: "Likely removable from dependencies, but review before deleting.",
+            reasons: ["No source reference found."]
+          }
+        }],
+        outdated: [],
+        risks: [],
+        suggestions: [],
+        topIssues: [],
+        extensions: {},
+        config: defaultConfig
+      };
+
+      const safePlan = await buildUnusedFixPlan(result);
+      const cautionPlan = await buildUnusedFixPlan(result, { includeCaution: true });
+
+      assert.equal(safePlan.commands.length, 0);
+      assert.equal(safePlan.skipped[0].reason, "requires --include-caution");
+      assert.deepEqual(cautionPlan.commands, ["pnpm --filter pkg-a remove unused-runtime"]);
+    }
+  },
+  {
+    name: "unused fix plan renders yarn workspace removals",
+    run: async () => {
+      const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "depbrain-fix-yarn-"));
+      await fs.writeFile(path.join(tempRoot, "yarn.lock"), "", "utf8");
+      const plan = await buildUnusedFixPlan({
+        outputVersion: "1.6",
+        rootDir: tempRoot,
+        score: 100,
+        scoreBreakdown: { baseScore: 100, duplicates: 0, outdated: 0, unused: 1, risks: 0, weights: { duplicateWeight: 5, outdatedWeight: 3, unusedWeight: 4, riskWeight: 10 } },
+        policy: { passed: true, reasons: [] },
+        ownershipSummary: { duplicates: 0, unused: 1, outdated: 0, risks: 0 },
+        duplicates: [],
+        unused: [{
+          name: "unused-tool",
+          section: "devDependencies",
+          package: "pkg-b",
+          confidence: 0.95,
+          reasonCodes: ["no_source_reference"],
+          explanation: ["No source reference found."],
+          recommendation: {
+            action: "remove",
+            priority: "high",
+            safety: "safe",
+            summary: "Safe to remove from devDependencies.",
+            reasons: ["No source reference found."]
+          }
+        }],
+        outdated: [],
+        risks: [],
+        suggestions: [],
+        topIssues: [],
+        extensions: {},
+        config: defaultConfig
+      });
+
+      assert.deepEqual(plan.commands, ["yarn workspace pkg-b remove unused-tool"]);
     }
   },
   {
