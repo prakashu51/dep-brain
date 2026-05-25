@@ -274,9 +274,21 @@ Delivered:
 4. GitHub Action inputs for PR comments
 5. Mocked regression coverage for renderer and GitHub comment update flow
 
+### `v1.8` - Safe Removal Preview
+
+Goal: turn safe unused dependency findings into reviewable uninstall plans.
+
+Delivered:
+
+1. `dep-brain fix --unused --dry-run`
+2. npm, pnpm, and yarn uninstall command rendering
+3. Workspace-aware command rendering
+4. `--include-caution` safety override
+5. JSON fix-plan output for CI artifacts
+
 Next build order:
 
-1. Safe removal autofix after stronger rollback and test guarantees
+1. Safe removal apply mode after rollback and test guarantees
 2. Optional runtime tracing to improve confidence accuracy
 3. OSV/CVE adapter after ownership model proves value
 

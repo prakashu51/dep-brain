@@ -6,7 +6,7 @@
 
 `dep-brain` is a CLI and library for explainable dependency intelligence in JavaScript and TypeScript projects.
 
-Current release `1.7.0` adds idempotent GitHub PR comments while keeping analysis output contract `1.6`.
+Current release `1.8.0` adds unused dependency fix-plan dry runs while keeping analysis output contract `1.6`.
 
 ## Vision
 
@@ -30,6 +30,7 @@ Current release `1.7.0` adds idempotent GitHub PR comments while keeping analysi
 - Output upgrade-advice reports via `--advise`
 - Send Slack and Discord webhook summaries for CI runs
 - Create or update GitHub PR comments for pull request checks
+- Preview safe unused dependency removal commands
 - Gate CI with score and finding policies
 - Compare new findings against a baseline report
 
@@ -39,7 +40,7 @@ The long-term goal is not just to list problems, but to answer:
 - Can I remove it safely?
 - What should I fix first?
 
-## 1.7 Highlights
+## 1.8 Highlights
 
 - Duplicate dependency detection with lockfile instance tracking
 - Unused dependency detection with runtime vs dev-tool heuristics
@@ -59,6 +60,7 @@ The long-term goal is not just to list problems, but to answer:
 - Upgrade advisor output via `--advise`
 - Slack and Discord notification summaries via `--notify`
 - GitHub PR comments via `--pr-comment`
+- Safe unused dependency fix plans via `dep-brain fix --unused --dry-run`
 - Ranked top issues via `--top`
 - Baseline mode via `--baseline`
 - Focused analysis via `--focus`
@@ -92,6 +94,9 @@ npx dep-brain analyze --notify
 npx dep-brain analyze --notify --notify-on always
 npx dep-brain analyze --pr-comment
 npx dep-brain analyze --pr-comment --comment-on new-findings
+npx dep-brain fix --unused --dry-run
+npx dep-brain fix --unused --dry-run --include-caution
+npx dep-brain fix --unused --dry-run --json
 npx dep-brain analyze --focus duplicates
 npx dep-brain analyze --ci
 npx dep-brain analyze --baseline depbrain-baseline.json
@@ -177,7 +182,7 @@ Suggestions:
 dep-brain analyze --json
 ```
 
-Output includes `outputVersion` for schema stability. `dep-brain@1.7.0` writes contract version `1.6`.
+Output includes `outputVersion` for schema stability. `dep-brain@1.8.0` writes contract version `1.6`.
 
 Validate against:
 
@@ -231,6 +236,16 @@ dep-brain analyze --ci --baseline depbrain-baseline.json --pr-comment --comment-
 ```
 
 `--pr-comment` creates or updates one GitHub pull request comment using `GITHUB_TOKEN`, `GITHUB_REPOSITORY`, and `GITHUB_EVENT_PATH`. The comment includes policy status, health score, top issues, upgrade priorities, and baseline delta counts when `--baseline` is used.
+
+## Fix Plans
+
+```bash
+dep-brain fix --unused --dry-run
+dep-brain fix --unused --dry-run --include-caution
+dep-brain fix --unused --dry-run --json
+```
+
+Fix plans print package-manager-specific uninstall commands without changing files. `dep-brain` detects npm, pnpm, or yarn lockfiles and skips caution-level removals unless `--include-caution` is set.
 
 ## Plugins
 
@@ -420,7 +435,7 @@ src/
 
 ## Product Direction
 
-`dep-brain` is in `v1.7.0` production CLI stage, with current focus on actionable dependency decisions and PR workflow integration.
+`dep-brain` is in `v1.8.0` production CLI stage, with current focus on safe dependency removal previews and PR workflow integration.
 
 Recent releases added:
 
@@ -430,6 +445,7 @@ Recent releases added:
 - structured upgrade advice with release-note links
 - Slack and Discord notification summaries
 - idempotent GitHub PR comments
+- unused dependency fix-plan dry runs
 
 Project should optimize for trust, clarity, and actionability over flashy UI, generic graphs, or simply adding more checks.
 

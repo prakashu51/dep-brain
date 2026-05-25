@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## 1.8.0
+
+- Added `dep-brain fix --unused --dry-run` for safe unused dependency removal previews.
+- Added package-manager command rendering for npm, pnpm, and yarn.
+- Added `--include-caution` to include caution-level unused dependency removals.
+- Added JSON output for fix plans with commands, included items, and skipped items.
+- Kept analysis output contract at `1.6` because no analysis JSON result fields changed.
+
 ## 1.7.0
 
 - Added idempotent GitHub PR comments with `--pr-comment`.

@@ -2,6 +2,7 @@
 
 import { analyzeProject } from "./core/analyzer.js";
 import type { AnalysisFocus, DepBrainBaseline } from "./core/analyzer.js";
+import { buildUnusedFixPlan, renderFixPlan } from "./core/fix-plan.js";
 import { renderConsoleReport } from "./reporters/console.js";
 import { renderJsonReport } from "./reporters/json.js";
 import { renderMarkdownReport } from "./reporters/markdown.js";
@@ -57,6 +58,50 @@ async function main(): Promise<void> {
   }
 
   if (command !== "analyze") {
+    if (command === "fix") {
+      if (!flags.has("--unused")) {
+        console.error("Missing --unused for fix");
+        printHelp();
+        process.exitCode = 1;
+        return;
+      }
+
+      if (!flags.has("--dry-run")) {
+        console.error("Fix currently supports --dry-run only.");
+        process.exitCode = 1;
+        return;
+      }
+
+      if (!(await hasPackageJson(targetPath))) {
+        console.error(`No package.json found at ${sanitizeForLog(targetPath)}`);
+        process.exitCode = 1;
+        return;
+      }
+
+      try {
+        const cliConfig = buildCliConfig(flags, optionValues);
+        const result = await analyzeProject({
+          rootDir: targetPath,
+          configPath: optionValues.get("--config"),
+          config: cliConfig,
+          focus: "unused"
+        });
+        const plan = await buildUnusedFixPlan(result, {
+          includeCaution: flags.has("--include-caution")
+        });
+        await writeOutput(
+          flags.has("--json") ? JSON.stringify(plan, null, 2) : renderFixPlan(plan),
+          optionValues.get("--out")
+        );
+        return;
+      } catch (error) {
+        console.error("Failed to build fix plan.");
+        console.error(error);
+        process.exitCode = 1;
+        return;
+      }
+    }
+
     if (command === "report") {
       const fromPath = optionValues.get("--from") ?? positionals[0];
       if (!fromPath) {
@@ -315,6 +360,7 @@ function printHelp(): void {
     "  dep-brain analyze [path] [--json] [--md] [--sarif] [--top] [--dashboard] [--notify] [--pr-comment] [--comment-on kind] [--focus kind] [--ci] [--out path] [--config path] [--baseline path] [--min-score n] [--fail-on-risks]"
   );
   console.log("  dep-brain report --from <file> [--md] [--json] [--sarif] [--top] [--advise] [--dashboard] [--out path]");
+  console.log("  dep-brain fix [path] --unused --dry-run [--include-caution] [--json] [--out path]");
   console.log("  dep-brain config [path] [--config path]");
   console.log("  dep-brain init [--out depbrain.config.json]");
   console.log("  dep-brain help");
@@ -338,6 +384,9 @@ function printHelp(): void {
   console.log("  --baseline <path>   Ignore findings already present in a baseline JSON report");
   console.log("  --from <file>       Read analysis JSON from file");
   console.log("  --out <path>        Write output to a file");
+  console.log("  --unused            Build an unused dependency fix plan");
+  console.log("  --dry-run           Print fix commands without changing files");
+  console.log("  --include-caution   Include caution-level unused dependency removals");
   console.log("  --min-score <n>     Minimum score required to pass");
   console.log("  --fail-on-risks     Fail when risky dependencies exist");
   console.log("  --fail-on-outdated  Fail when outdated dependencies exist");
