@@ -6,7 +6,7 @@
 
 `dep-brain` is a CLI and library for explainable dependency intelligence in JavaScript and TypeScript projects.
 
-Current release `1.8.0` adds unused dependency fix-plan dry runs while keeping analysis output contract `1.6`.
+Current release `1.9.0` adds guarded unused dependency fix apply mode while keeping analysis output contract `1.6`.
 
 ## Vision
 
@@ -40,7 +40,7 @@ The long-term goal is not just to list problems, but to answer:
 - Can I remove it safely?
 - What should I fix first?
 
-## 1.8 Highlights
+## 1.9 Highlights
 
 - Duplicate dependency detection with lockfile instance tracking
 - Unused dependency detection with runtime vs dev-tool heuristics
@@ -61,6 +61,7 @@ The long-term goal is not just to list problems, but to answer:
 - Slack and Discord notification summaries via `--notify`
 - GitHub PR comments via `--pr-comment`
 - Safe unused dependency fix plans via `dep-brain fix --unused --dry-run`
+- Guarded unused dependency apply mode via `dep-brain fix --unused --apply`
 - Ranked top issues via `--top`
 - Baseline mode via `--baseline`
 - Focused analysis via `--focus`
@@ -97,6 +98,8 @@ npx dep-brain analyze --pr-comment --comment-on new-findings
 npx dep-brain fix --unused --dry-run
 npx dep-brain fix --unused --dry-run --include-caution
 npx dep-brain fix --unused --dry-run --json
+npx dep-brain fix --unused --apply
+npx dep-brain fix --unused --apply --test-command "npm test"
 npx dep-brain analyze --focus duplicates
 npx dep-brain analyze --ci
 npx dep-brain analyze --baseline depbrain-baseline.json
@@ -182,7 +185,7 @@ Suggestions:
 dep-brain analyze --json
 ```
 
-Output includes `outputVersion` for schema stability. `dep-brain@1.8.0` writes contract version `1.6`.
+Output includes `outputVersion` for schema stability. `dep-brain@1.9.0` writes contract version `1.6`.
 
 Validate against:
 
@@ -243,9 +246,13 @@ dep-brain analyze --ci --baseline depbrain-baseline.json --pr-comment --comment-
 dep-brain fix --unused --dry-run
 dep-brain fix --unused --dry-run --include-caution
 dep-brain fix --unused --dry-run --json
+dep-brain fix --unused --apply
+dep-brain fix --unused --apply --test-command "npm test"
 ```
 
 Fix plans print package-manager-specific uninstall commands without changing files. `dep-brain` detects npm, pnpm, or yarn lockfiles and skips caution-level removals unless `--include-caution` is set.
+
+Apply mode runs the same plan commands, blocks on a dirty git worktree by default, and can run a verification command after successful removals. Use `--allow-dirty` only for controlled maintenance branches.
 
 ## Plugins
 
@@ -435,7 +442,7 @@ src/
 
 ## Product Direction
 
-`dep-brain` is in `v1.8.0` production CLI stage, with current focus on safe dependency removal previews and PR workflow integration.
+`dep-brain` is in `v1.9.0` production CLI stage, with current focus on guarded dependency cleanup and PR workflow integration.
 
 Recent releases added:
 
@@ -446,6 +453,7 @@ Recent releases added:
 - Slack and Discord notification summaries
 - idempotent GitHub PR comments
 - unused dependency fix-plan dry runs
+- guarded unused dependency apply mode
 
 Project should optimize for trust, clarity, and actionability over flashy UI, generic graphs, or simply adding more checks.
 

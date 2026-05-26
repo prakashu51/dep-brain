@@ -286,10 +286,22 @@ Delivered:
 4. `--include-caution` safety override
 5. JSON fix-plan output for CI artifacts
 
+### `v1.9` - Guarded Safe Removal Apply
+
+Goal: let maintainers apply reviewed unused dependency cleanup with clear safety gates.
+
+Delivered:
+
+1. `dep-brain fix --unused --apply`
+2. Dirty git worktree protection with `--allow-dirty`
+3. Optional `--test-command` verification after removals
+4. Apply result output with applied, skipped, failed, and test status details
+5. Mocked command-runner regression coverage
+
 Next build order:
 
-1. Safe removal apply mode after rollback and test guarantees
-2. Optional runtime tracing to improve confidence accuracy
+1. Optional runtime tracing to improve confidence accuracy
+2. Additive `newFindings` and `fixPlan` analysis fields behind flags
 3. OSV/CVE adapter after ownership model proves value
 
 Park until later:

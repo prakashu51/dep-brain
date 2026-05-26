@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## 1.9.0
+
+- Added `dep-brain fix --unused --apply` for guarded unused dependency cleanup.
+- Added dirty git worktree protection with `--allow-dirty` override.
+- Added `--test-command` verification after successful fix application.
+- Added apply result output with applied, skipped, failed, and test status details.
+- Kept analysis output contract at `1.6` because no analysis JSON result fields changed.
+
 ## 1.8.0
 
 - Added `dep-brain fix --unused --dry-run` for safe unused dependency removal previews.
