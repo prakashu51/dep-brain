@@ -2,6 +2,7 @@
 
 import { analyzeProject } from "./core/analyzer.js";
 import type { AnalysisFocus, DepBrainBaseline } from "./core/analyzer.js";
+import { applyFixPlan, renderFixApplyResult } from "./core/fix-apply.js";
 import { buildUnusedFixPlan, renderFixPlan } from "./core/fix-plan.js";
 import { renderConsoleReport } from "./reporters/console.js";
 import { renderJsonReport } from "./reporters/json.js";
@@ -66,8 +67,8 @@ async function main(): Promise<void> {
         return;
       }
 
-      if (!flags.has("--dry-run")) {
-        console.error("Fix currently supports --dry-run only.");
+      if (!flags.has("--dry-run") && !flags.has("--apply")) {
+        console.error("Fix requires --dry-run or --apply.");
         process.exitCode = 1;
         return;
       }
@@ -89,6 +90,25 @@ async function main(): Promise<void> {
         const plan = await buildUnusedFixPlan(result, {
           includeCaution: flags.has("--include-caution")
         });
+
+        if (flags.has("--apply")) {
+          const applyResult = await applyFixPlan(plan, {
+            rootDir: result.rootDir,
+            allowDirty: flags.has("--allow-dirty"),
+            testCommand: optionValues.get("--test-command")
+          });
+          await writeOutput(
+            flags.has("--json")
+              ? JSON.stringify(applyResult, null, 2)
+              : renderFixApplyResult(applyResult),
+            optionValues.get("--out")
+          );
+          if (applyResult.failed) {
+            process.exitCode = 1;
+          }
+          return;
+        }
+
         await writeOutput(
           flags.has("--json") ? JSON.stringify(plan, null, 2) : renderFixPlan(plan),
           optionValues.get("--out")
@@ -360,7 +380,7 @@ function printHelp(): void {
     "  dep-brain analyze [path] [--json] [--md] [--sarif] [--top] [--dashboard] [--notify] [--pr-comment] [--comment-on kind] [--focus kind] [--ci] [--out path] [--config path] [--baseline path] [--min-score n] [--fail-on-risks]"
   );
   console.log("  dep-brain report --from <file> [--md] [--json] [--sarif] [--top] [--advise] [--dashboard] [--out path]");
-  console.log("  dep-brain fix [path] --unused --dry-run [--include-caution] [--json] [--out path]");
+  console.log("  dep-brain fix [path] --unused (--dry-run | --apply) [--include-caution] [--allow-dirty] [--test-command cmd] [--json] [--out path]");
   console.log("  dep-brain config [path] [--config path]");
   console.log("  dep-brain init [--out depbrain.config.json]");
   console.log("  dep-brain help");
@@ -386,6 +406,9 @@ function printHelp(): void {
   console.log("  --out <path>        Write output to a file");
   console.log("  --unused            Build an unused dependency fix plan");
   console.log("  --dry-run           Print fix commands without changing files");
+  console.log("  --apply             Run fix commands from the unused dependency plan");
+  console.log("  --allow-dirty       Apply fixes even when git worktree is dirty");
+  console.log("  --test-command <cmd> Run a command after applying fixes");
   console.log("  --include-caution   Include caution-level unused dependency removals");
   console.log("  --min-score <n>     Minimum score required to pass");
   console.log("  --fail-on-risks     Fail when risky dependencies exist");

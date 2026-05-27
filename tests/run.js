@@ -8,6 +8,7 @@ import { findOutdatedDependencies } from "../dist/checks/outdated.js";
 import { findRiskDependencies } from "../dist/checks/risk.js";
 import { findUnusedDependencies } from "../dist/checks/unused.js";
 import { analyzeProject } from "../dist/core/analyzer.js";
+import { applyFixPlan } from "../dist/core/fix-apply.js";
 import { buildUnusedFixPlan, renderFixPlan } from "../dist/core/fix-plan.js";
 import { buildDependencyGraph } from "../dist/core/graph-builder.js";
 import { calculateHealthScore } from "../dist/core/scorer.js";
@@ -1501,6 +1502,135 @@ const tests = [
       });
 
       assert.deepEqual(plan.commands, ["yarn workspace pkg-b remove unused-tool"]);
+    }
+  },
+  {
+    name: "fix apply blocks dirty git worktree",
+    run: async () => {
+      const plan = {
+        packageManager: "npm",
+        dryRun: true,
+        commands: ["npm uninstall unused-lib"],
+        items: [{
+          name: "unused-lib",
+          section: "devDependencies",
+          confidence: 0.95,
+          safety: "safe",
+          command: "npm uninstall unused-lib",
+          args: ["npm", "uninstall", "unused-lib"]
+        }],
+        skipped: []
+      };
+
+      const result = await applyFixPlan(plan, {
+        rootDir: "D:/fixture",
+        runner: async (command, args) => ({
+          command: [command, ...args].join(" "),
+          exitCode: 0,
+          stdout: " M package.json\n",
+          stderr: ""
+        })
+      });
+
+      assert.equal(result.dirty, true);
+      assert.equal(result.applied.length, 0);
+      assert.equal(result.failed.command, "git status --porcelain");
+    }
+  },
+  {
+    name: "fix apply runs commands and test command",
+    run: async () => {
+      const calls = [];
+      const plan = {
+        packageManager: "npm",
+        dryRun: true,
+        commands: ["npm uninstall unused-lib"],
+        items: [{
+          name: "unused-lib",
+          section: "devDependencies",
+          confidence: 0.95,
+          safety: "safe",
+          command: "npm uninstall unused-lib",
+          args: ["npm", "uninstall", "unused-lib"]
+        }],
+        skipped: []
+      };
+
+      const result = await applyFixPlan(plan, {
+        rootDir: "D:/fixture",
+        testCommand: "npm test",
+        runner: async (command, args) => {
+          calls.push([command, ...args].join(" "));
+          return {
+            command: [command, ...args].join(" "),
+            exitCode: 0,
+            stdout: "",
+            stderr: ""
+          };
+        }
+      });
+
+      const expectedTestCommand =
+        process.platform === "win32" ? "cmd /c npm test" : "sh -c npm test";
+      assert.deepEqual(calls, [
+        "git status --porcelain",
+        "npm uninstall unused-lib",
+        expectedTestCommand
+      ]);
+      assert.equal(result.applied.length, 1);
+      assert.equal(result.failed, null);
+      assert.equal(result.test.exitCode, 0);
+    }
+  },
+  {
+    name: "fix apply stops on failed uninstall",
+    run: async () => {
+      const calls = [];
+      const plan = {
+        packageManager: "npm",
+        dryRun: true,
+        commands: ["npm uninstall broken-lib", "npm uninstall skipped-lib"],
+        items: [
+          {
+            name: "broken-lib",
+            section: "devDependencies",
+            confidence: 0.95,
+            safety: "safe",
+            command: "npm uninstall broken-lib",
+            args: ["npm", "uninstall", "broken-lib"]
+          },
+          {
+            name: "skipped-lib",
+            section: "devDependencies",
+            confidence: 0.95,
+            safety: "safe",
+            command: "npm uninstall skipped-lib",
+            args: ["npm", "uninstall", "skipped-lib"]
+          }
+        ],
+        skipped: []
+      };
+
+      const result = await applyFixPlan(plan, {
+        rootDir: "D:/fixture",
+        runner: async (command, args) => {
+          const fullCommand = [command, ...args].join(" ");
+          calls.push(fullCommand);
+          return {
+            command: fullCommand,
+            exitCode: fullCommand.includes("broken-lib") ? 1 : 0,
+            stdout: "",
+            stderr: fullCommand.includes("broken-lib") ? "uninstall failed" : ""
+          };
+        }
+      });
+
+      assert.deepEqual(calls, [
+        "git status --porcelain",
+        "npm uninstall broken-lib"
+      ]);
+      assert.equal(result.applied.length, 0);
+      assert.equal(result.failed.command, "npm uninstall broken-lib");
     }
   },
   {

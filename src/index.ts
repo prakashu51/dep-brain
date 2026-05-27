@@ -1,5 +1,10 @@
 export { analyzeProject } from "./core/analyzer.js";
 export {
+  applyFixPlan,
+  isGitWorktreeDirty,
+  renderFixApplyResult
+} from "./core/fix-apply.js";
+export {
   buildUnusedFixPlan,
   detectPackageManager,
   renderFixPlan
@@ -28,6 +33,12 @@ export { OUTPUT_VERSION } from "./core/analyzer.js";
 export { PluginManager } from "./core/plugin-manager.js";
 export type { DepBrainPlugin, PluginDiagnostic, ProjectContext } from "./core/plugin-manager.js";
 export type { AnalysisContext, CheckResult, Issue } from "./core/types.js";
+export type {
+  CommandResult,
+  CommandRunner,
+  FixApplyOptions,
+  FixApplyResult
+} from "./core/fix-apply.js";
 export type {
   FixPlan,
   FixPlanItem,
