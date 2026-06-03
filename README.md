@@ -6,7 +6,7 @@
 
 `dep-brain` is a CLI and library for explainable dependency intelligence in JavaScript and TypeScript projects.
 
-Current release `1.9.0` adds guarded unused dependency fix apply mode while keeping analysis output contract `1.6`.
+Current release `1.10.0` adds optional new-finding and fix-plan analysis fields with output contract `1.7`.
 
 ## Vision
 
@@ -40,7 +40,7 @@ The long-term goal is not just to list problems, but to answer:
 - Can I remove it safely?
 - What should I fix first?
 
-## 1.9 Highlights
+## 1.10 Highlights
 
 - Duplicate dependency detection with lockfile instance tracking
 - Unused dependency detection with runtime vs dev-tool heuristics
@@ -62,6 +62,8 @@ The long-term goal is not just to list problems, but to answer:
 - GitHub PR comments via `--pr-comment`
 - Safe unused dependency fix plans via `dep-brain fix --unused --dry-run`
 - Guarded unused dependency apply mode via `dep-brain fix --unused --apply`
+- Optional new-finding summaries via `--show-new-findings`
+- Optional analysis fix plans via `--with-fix-plan`
 - Ranked top issues via `--top`
 - Baseline mode via `--baseline`
 - Focused analysis via `--focus`
@@ -100,6 +102,8 @@ npx dep-brain fix --unused --dry-run --include-caution
 npx dep-brain fix --unused --dry-run --json
 npx dep-brain fix --unused --apply
 npx dep-brain fix --unused --apply --test-command "npm test"
+npx dep-brain analyze --json --show-new-findings
+npx dep-brain analyze --json --with-fix-plan
 npx dep-brain analyze --focus duplicates
 npx dep-brain analyze --ci
 npx dep-brain analyze --baseline depbrain-baseline.json
@@ -185,7 +189,7 @@ Suggestions:
 dep-brain analyze --json
 ```
 
-Output includes `outputVersion` for schema stability. `dep-brain@1.9.0` writes contract version `1.6`.
+Output includes `outputVersion` for schema stability. `dep-brain@1.10.0` writes contract version `1.7`.
 
 Validate against:
 
@@ -253,6 +257,16 @@ dep-brain fix --unused --apply --test-command "npm test"
 Fix plans print package-manager-specific uninstall commands without changing files. `dep-brain` detects npm, pnpm, or yarn lockfiles and skips caution-level removals unless `--include-caution` is set.
 
 Apply mode runs the same plan commands, blocks on a dirty git worktree by default, and can run a verification command after successful removals. Use `--allow-dirty` only for controlled maintenance branches.
+
+## New Findings and Fix Plans
+
+```bash
+dep-brain analyze --json --baseline depbrain-baseline.json --show-new-findings
+dep-brain analyze --json --with-fix-plan
+dep-brain analyze --json --with-fix-plan --include-caution
+```
+
+`--show-new-findings` adds optional `newFindings` data after baseline filtering. `--with-fix-plan` adds optional `fixPlan` data to analysis output without running uninstall commands.
 
 ## Plugins
 
@@ -442,7 +456,7 @@ src/
 
 ## Product Direction
 
-`dep-brain` is in `v1.9.0` production CLI stage, with current focus on guarded dependency cleanup and PR workflow integration.
+`dep-brain` is in `v1.10.0` production CLI stage, with current focus on additive automation metadata and guarded dependency cleanup.
 
 Recent releases added:
 
@@ -454,6 +468,7 @@ Recent releases added:
 - idempotent GitHub PR comments
 - unused dependency fix-plan dry runs
 - guarded unused dependency apply mode
+- optional new-finding and fix-plan analysis fields
 
 Project should optimize for trust, clarity, and actionability over flashy UI, generic graphs, or simply adding more checks.
 

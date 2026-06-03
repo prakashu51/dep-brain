@@ -18,6 +18,44 @@ Use this format for future entries:
 - Follow-up notes
 ```
 
+## 2026-05-27 - v1.10 additive automation metadata iteration
+
+### What changed
+
+- Added `--show-new-findings`.
+- Added `--with-fix-plan`.
+- Added optional `newFindings` and `fixPlan` analysis output fields.
+- Updated Markdown, PR comment, and notification output for new-finding data.
+- Bumped package version to `1.10.0` and output contract to `1.7`.
+- Updated changelog, README, roadmap, schema, and regression coverage.
+
+### Why it changed
+
+- v1.10 needs richer review and cleanup metadata without a major-version schema break.
+
+### Files touched
+
+- `src/core/analyzer.ts`
+- `src/cli.ts`
+- `src/reporters/markdown.ts`
+- `src/reporters/pr-comment.ts`
+- `src/utils/notifications.ts`
+- `src/index.ts`
+- `depbrain.output.schema.json`
+- `package.json`
+- `package-lock.json`
+- `CHANGELOG.md`
+- `README.md`
+- `docs/product-roadmap.md`
+- `docs/implementation-log.md`
+- `tests/run.js`
+
+### Verification completed
+
+- `cmd /c npm run typecheck`
+- `cmd /c npm run test`
+- `cmd /c npm pack --dry-run`
+
 ## 2026-05-26 - v1.9 guarded fix apply iteration
 
 ### What changed

@@ -15,6 +15,7 @@ export type {
   AnalysisResult,
   DepBrainBaseline,
   DuplicateDependency,
+  NewFindingsSummary,
   OutdatedDependency,
   PolicyResult,
   PackageAnalysisResult,

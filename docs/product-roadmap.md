@@ -298,11 +298,23 @@ Delivered:
 4. Apply result output with applied, skipped, failed, and test status details
 5. Mocked command-runner regression coverage
 
+### `v1.10` - Additive Automation Metadata
+
+Goal: expose review and cleanup metadata in analysis output without major-version breakage.
+
+Delivered:
+
+1. `--show-new-findings`
+2. `--with-fix-plan`
+3. Optional `newFindings` and `fixPlan` JSON fields
+4. Markdown, PR comment, and notification rendering for new-finding data
+5. Output contract `1.7`
+
 Next build order:
 
 1. Optional runtime tracing to improve confidence accuracy
-2. Additive `newFindings` and `fixPlan` analysis fields behind flags
-3. OSV/CVE adapter after ownership model proves value
+2. OSV/CVE adapter after ownership model proves value
+3. Safe removal rollback helpers
 
 Park until later:
 

@@ -16,6 +16,7 @@ import { PluginManager } from "./plugin-manager.js";
 import { calculateHealthScore, calculateScoreDeductions } from "./scorer.js";
 import { buildAnalysisContext } from "./context.js";
 import type { CheckResult, Issue } from "./types.js";
+import type { FixPlan } from "./fix-plan.js";
 
 export interface AnalysisOptions {
   rootDir?: string;
@@ -168,6 +169,17 @@ export interface AnalysisResult {
   extensions: Record<string, unknown>;
   config: DepBrainConfig;
   packages?: PackageAnalysisResult[];
+  newFindings?: NewFindingsSummary;
+  fixPlan?: FixPlan;
+}
+
+export interface NewFindingsSummary {
+  counts: WorkspaceOwnershipSummary;
+  duplicates: DuplicateDependency[];
+  unused: UnusedDependency[];
+  outdated: OutdatedDependency[];
+  risks: RiskDependency[];
+  topIssues: TopIssue[];
 }
 
 export interface PolicyResult {
@@ -191,7 +203,7 @@ export interface PackageAnalysisResult {
   extensions: Record<string, unknown>;
 }
 
-export const OUTPUT_VERSION = "1.6";
+export const OUTPUT_VERSION = "1.7";
 
 export interface ScoreBreakdown {
   baseScore: number;
