@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## 1.10.0
+
+- Added `--show-new-findings` for optional baseline-filtered finding summaries.
+- Added `--with-fix-plan` for optional unused dependency fix plans in analysis output.
+- Updated Markdown, PR comment, and notification summaries to surface new-finding data when present.
+- Bumped analysis output contract to `1.7` for optional `newFindings` and `fixPlan` fields.
+
 ## 1.9.0
 
 - Added `dep-brain fix --unused --apply` for guarded unused dependency cleanup.

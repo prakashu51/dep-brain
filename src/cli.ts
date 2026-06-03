@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { analyzeProject } from "./core/analyzer.js";
-import type { AnalysisFocus, DepBrainBaseline } from "./core/analyzer.js";
+import type { AnalysisFocus, AnalysisResult, DepBrainBaseline, NewFindingsSummary } from "./core/analyzer.js";
 import { applyFixPlan, renderFixApplyResult } from "./core/fix-apply.js";
 import { buildUnusedFixPlan, renderFixPlan } from "./core/fix-plan.js";
 import { renderConsoleReport } from "./reporters/console.js";
@@ -221,6 +221,16 @@ async function main(): Promise<void> {
       focus: parseFocus(optionValues.get("--focus"))
     });
 
+    if (flags.has("--show-new-findings")) {
+      result.newFindings = buildNewFindingsSummary(result);
+    }
+
+    if (flags.has("--with-fix-plan")) {
+      result.fixPlan = await buildUnusedFixPlan(result, {
+        includeCaution: flags.has("--include-caution")
+      });
+    }
+
     let output: string;
     if (flags.has("--json")) {
       output = renderJsonReport(result);
@@ -377,7 +387,7 @@ function printHelp(): void {
   console.log("");
   console.log("Usage:");
   console.log(
-    "  dep-brain analyze [path] [--json] [--md] [--sarif] [--top] [--dashboard] [--notify] [--pr-comment] [--comment-on kind] [--focus kind] [--ci] [--out path] [--config path] [--baseline path] [--min-score n] [--fail-on-risks]"
+    "  dep-brain analyze [path] [--json] [--md] [--sarif] [--top] [--dashboard] [--notify] [--pr-comment] [--show-new-findings] [--with-fix-plan] [--focus kind] [--ci] [--out path] [--config path] [--baseline path] [--min-score n] [--fail-on-risks]"
   );
   console.log("  dep-brain report --from <file> [--md] [--json] [--sarif] [--top] [--advise] [--dashboard] [--out path]");
   console.log("  dep-brain fix [path] --unused (--dry-run | --apply) [--include-caution] [--allow-dirty] [--test-command cmd] [--json] [--out path]");
@@ -398,6 +408,8 @@ function printHelp(): void {
   console.log("  --notify-on <kind>  Send notifications on always, failure, or never");
   console.log("  --pr-comment        Create or update a GitHub PR comment");
   console.log("  --comment-on <kind> Post PR comment on always, failure, or new-findings");
+  console.log("  --show-new-findings Include baseline-filtered new findings in JSON and reports");
+  console.log("  --with-fix-plan     Include an unused dependency fix plan in analysis output");
   console.log("  --focus <kind>      Run all, health, duplicates, unused, outdated, or risks");
   console.log("  --ci                Apply low-noise CI defaults");
   console.log("  --config <path>     Path to depbrain.config.json");
@@ -580,4 +592,20 @@ function countFindings(result: Awaited<ReturnType<typeof analyzeProject>>): numb
     result.outdated.length +
     result.risks.length
   );
+}
+
+function buildNewFindingsSummary(result: AnalysisResult): NewFindingsSummary {
+  return {
+    counts: {
+      duplicates: result.duplicates.length,
+      unused: result.unused.length,
+      outdated: result.outdated.length,
+      risks: result.risks.length
+    },
+    duplicates: result.duplicates,
+    unused: result.unused,
+    outdated: result.outdated,
+    risks: result.risks,
+    topIssues: result.topIssues
+  };
 }

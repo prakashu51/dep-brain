@@ -20,8 +20,14 @@ export function renderPrCommentReport(
   ];
 
   if (options.hasBaseline) {
+    const counts = result.newFindings?.counts ?? {
+      duplicates: result.duplicates.length,
+      unused: result.unused.length,
+      outdated: result.outdated.length,
+      risks: result.risks.length
+    };
     lines.push(
-      `**New since baseline:** duplicates ${result.duplicates.length}, unused ${result.unused.length}, outdated ${result.outdated.length}, risks ${result.risks.length}`
+      `**New since baseline:** duplicates ${counts.duplicates}, unused ${counts.unused}, outdated ${counts.outdated}, risks ${counts.risks}`
     );
   }
 

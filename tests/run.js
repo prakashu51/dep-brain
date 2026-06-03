@@ -758,6 +758,9 @@ const tests = [
       assert.ok(result.risks.every((item) => typeof item.trustScore === "string"));
       assert.ok(result.risks.every((item) => typeof item.transitiveRiskScore === "number"));
       assert.ok(result.outdated.every((item) => item.advice && typeof item.advice.risk === "string"));
+      assert.equal(result.outputVersion, "1.7");
+      assert.equal(result.newFindings, undefined);
+      assert.equal(result.fixPlan, undefined);
     }
   },
   {
@@ -949,6 +952,68 @@ const tests = [
 
       assert.ok(report.trim().length > 0);
       assert.ok(report.includes("\"advice\""));
+    }
+  },
+  {
+    name: "json report supports optional new findings and fix plan fields",
+    run: async () => {
+      const unusedItem = {
+        name: "unused-lib",
+        section: "devDependencies",
+        confidence: 0.95,
+        reasonCodes: ["no_source_reference"],
+        explanation: ["No source reference found."],
+        recommendation: {
+          action: "remove",
+          priority: "high",
+          safety: "safe",
+          summary: "Safe to remove from devDependencies.",
+          reasons: ["No source reference found."]
+        }
+      };
+      const report = renderJsonReport({
+        outputVersion: "1.7",
+        rootDir: "D:/fixture",
+        score: 100,
+        scoreBreakdown: { baseScore: 100, duplicates: 0, outdated: 0, unused: 1, risks: 0, weights: { duplicateWeight: 5, outdatedWeight: 3, unusedWeight: 4, riskWeight: 10 } },
+        policy: { passed: true, reasons: [] },
+        ownershipSummary: { duplicates: 0, unused: 1, outdated: 0, risks: 0 },
+        duplicates: [],
+        unused: [unusedItem],
+        outdated: [],
+        risks: [],
+        suggestions: [],
+        topIssues: [],
+        extensions: {},
+        config: defaultConfig,
+        newFindings: {
+          counts: { duplicates: 0, unused: 1, outdated: 0, risks: 0 },
+          duplicates: [],
+          unused: [unusedItem],
+          outdated: [],
+          risks: [],
+          topIssues: []
+        },
+        fixPlan: {
+          packageManager: "npm",
+          dryRun: true,
+          commands: ["npm uninstall unused-lib"],
+          items: [{
+            name: "unused-lib",
+            section: "devDependencies",
+            confidence: 0.95,
+            safety: "safe",
+            command: "npm uninstall unused-lib",
+            args: ["npm", "uninstall", "unused-lib"]
+          }],
+          skipped: []
+        }
+      });
+      const parsed = JSON.parse(report);
+
+      assert.equal(parsed.outputVersion, "1.7");
+      assert.equal(parsed.newFindings.counts.unused, 1);
+      assert.equal(parsed.fixPlan.commands[0], "npm uninstall unused-lib");
     }
   },
   {

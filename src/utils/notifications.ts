@@ -118,6 +118,12 @@ export function renderNotificationMessage(result: AnalysisResult): string {
     lines.push(`policy: ${result.policy.reasons.join("; ")}`);
   }
 
+  if (result.newFindings) {
+    lines.push(
+      `new: duplicates ${result.newFindings.counts.duplicates}, unused ${result.newFindings.counts.unused}, outdated ${result.newFindings.counts.outdated}, risks ${result.newFindings.counts.risks}`
+    );
+  }
+
   if (result.topIssues.length > 0) {
     lines.push("top issues:");
     for (const issue of result.topIssues.slice(0, 3)) {

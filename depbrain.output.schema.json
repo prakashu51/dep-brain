@@ -73,6 +73,33 @@
         "risks": { "type": "number" }
       }
     },
+    "fixPlanItem": {
+      "type": "object",
+      "required": ["name", "section", "confidence", "safety", "command", "args"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string" },
+        "section": { "type": "string", "enum": ["dependencies", "devDependencies"] },
+        "package": { "type": "string" },
+        "confidence": { "type": "number" },
+        "safety": { "type": "string", "enum": ["safe", "caution", "unknown"] },
+        "command": { "type": "string" },
+        "args": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "skippedFixItem": {
+      "type": "object",
+      "required": ["name", "section", "confidence", "safety", "reason"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string" },
+        "section": { "type": "string", "enum": ["dependencies", "devDependencies"] },
+        "package": { "type": "string" },
+        "confidence": { "type": "number" },
+        "safety": { "type": "string", "enum": ["safe", "caution", "unknown"] },
+        "reason": { "type": "string" }
+      }
+    },
     "outputVersion": { "type": "string" },
     "rootDir": { "type": "string" },
     "score": { "type": "number" },
@@ -235,6 +262,37 @@
       }
     },
     "config": { "type": "object" },
-    "packages": { "type": "array" }
+    "packages": { "type": "array" },
+    "newFindings": {
+      "type": "object",
+      "required": ["counts", "duplicates", "unused", "outdated", "risks", "topIssues"],
+      "additionalProperties": false,
+      "properties": {
+        "counts": { "$ref": "#/properties/ownershipSummary" },
+        "duplicates": { "$ref": "#/properties/duplicates" },
+        "unused": { "$ref": "#/properties/unused" },
+        "outdated": { "$ref": "#/properties/outdated" },
+        "risks": { "$ref": "#/properties/risks" },
+        "topIssues": { "$ref": "#/properties/topIssues" }
+      }
+    },
+    "fixPlan": {
+      "type": "object",
+      "required": ["packageManager", "dryRun", "commands", "items", "skipped"],
+      "additionalProperties": false,
+      "properties": {
+        "packageManager": { "type": "string", "enum": ["npm", "pnpm", "yarn"] },
+        "dryRun": { "type": "boolean" },
+        "commands": { "type": "array", "items": { "type": "string" } },
+        "items": {
+          "type": "array",
+          "items": { "$ref": "#/properties/fixPlanItem" }
+        },
+        "skipped": {
+          "type": "array",
+          "items": { "$ref": "#/properties/skippedFixItem" }
+        }
+      }
+    }
   }
 }

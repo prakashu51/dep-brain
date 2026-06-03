@@ -40,6 +40,26 @@ export function renderMarkdownReport(result: AnalysisResult): string {
   lines.push(`- Risks: ${result.risks.length}`);
   lines.push("");
 
+  if (result.newFindings) {
+    lines.push("## New Findings");
+    lines.push(`- Duplicates: ${result.newFindings.counts.duplicates}`);
+    lines.push(`- Unused: ${result.newFindings.counts.unused}`);
+    lines.push(`- Outdated: ${result.newFindings.counts.outdated}`);
+    lines.push(`- Risks: ${result.newFindings.counts.risks}`);
+    lines.push("");
+  }
+
+  if (result.fixPlan) {
+    lines.push("## Fix Plan");
+    lines.push(`- Package manager: ${result.fixPlan.packageManager}`);
+    lines.push(`- Commands: ${result.fixPlan.commands.length}`);
+    lines.push(`- Skipped: ${result.fixPlan.skipped.length}`);
+    for (const command of result.fixPlan.commands.slice(0, 5)) {
+      lines.push(`- \`${command}\``);
+    }
+    lines.push("");
+  }
+
   appendSection(
     lines,
     "Duplicate dependencies",
