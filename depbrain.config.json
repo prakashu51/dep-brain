@@ -30,7 +30,12 @@
     "agingReleaseDays": 365,
     "lowDownloadThreshold": 1000,
     "lowTrustWeightThreshold": 6,
-    "mediumTrustWeightThreshold": 3
+    "mediumTrustWeightThreshold": 3,
+    "osv": {
+      "enabled": false,
+      "severityThreshold": "high",
+      "includeDevDependencies": false
+    }
   },
   "dashboard": {
     "outputPath": "depbrain-dashboard.html"

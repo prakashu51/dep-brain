@@ -18,6 +18,49 @@ Use this format for future entries:
 - Follow-up notes
 ```
 
+## 2026-06-03 - v1.11 OSV vulnerability intelligence iteration
+
+### What changed
+
+- Added optional OSV vulnerability lookup for risk analysis.
+- Added `risk.osv.enabled`, `risk.osv.severityThreshold`, and `risk.osv.includeDevDependencies`.
+- Added advisory id, severity, affected range, and fixed versions under `riskFactors.vulnerabilities`.
+- Updated console, Markdown, dashboard, PR comment, and notification output with vulnerability data.
+- Bumped package version to `1.11.0` and output contract to `1.8`.
+
+### Why it changed
+
+- v1.11 needs advisory-backed evidence for dependency risk decisions without making OSV failures noisy.
+
+### Files touched
+
+- `src/utils/osv.ts`
+- `src/checks/risk.ts`
+- `src/core/analyzer.ts`
+- `src/utils/config.ts`
+- `src/reporters/console.ts`
+- `src/reporters/markdown.ts`
+- `src/reporters/dashboard.ts`
+- `src/reporters/pr-comment.ts`
+- `src/utils/notifications.ts`
+- `src/index.ts`
+- `depbrain.config.json`
+- `depbrain.config.schema.json`
+- `depbrain.output.schema.json`
+- `package.json`
+- `package-lock.json`
+- `CHANGELOG.md`
+- `README.md`
+- `docs/product-roadmap.md`
+- `docs/implementation-log.md`
+- `tests/run.js`
+
+### Verification completed
+
+- `cmd /c npm run typecheck`
+- `cmd /c npm run test`
+- `cmd /c npm pack --dry-run`
+
 ## 2026-05-27 - v1.10 additive automation metadata iteration
 
 ### What changed

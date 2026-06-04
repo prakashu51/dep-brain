@@ -109,8 +109,8 @@ export function renderMarkdownReport(result: AnalysisResult): string {
     result.risks.map((item) =>
       formatEntry(
         item.package
-          ? `${item.name}: ${item.reasons.join("; ")} [${item.package}] [trust ${item.trustScore.toUpperCase()}]${formatTransitiveRiskSuffix(item)}`
-          : `${item.name}: ${item.reasons.join("; ")} [trust ${item.trustScore.toUpperCase()}]${formatTransitiveRiskSuffix(item)}`,
+          ? `${item.name}: ${item.reasons.join("; ")} [${item.package}] [trust ${item.trustScore.toUpperCase()}]${formatTransitiveRiskSuffix(item)}${formatVulnerabilitySuffix(item)}`
+          : `${item.name}: ${item.reasons.join("; ")} [trust ${item.trustScore.toUpperCase()}]${formatTransitiveRiskSuffix(item)}${formatVulnerabilitySuffix(item)}`,
         item.confidence,
         item.explanation,
         item.recommendation
@@ -138,6 +138,17 @@ function formatTransitiveRiskSuffix(item: AnalysisResult["risks"][number]): stri
 
   const names = item.riskyTransitiveDeps.slice(0, 3).map((entry) => entry.name).join(", ");
   return ` [transitive score ${item.transitiveRiskScore}] [via ${names}]`;
+}
+
+function formatVulnerabilitySuffix(item: AnalysisResult["risks"][number]): string {
+  const vulnerabilities = item.riskFactors.vulnerabilities;
+  if (vulnerabilities.length === 0) {
+    return "";
+  }
+
+  const top = vulnerabilities[0];
+  const fixed = top.fixedVersions[0] ? ` fixed ${top.fixedVersions[0]}` : "";
+  return ` [osv ${vulnerabilities.length} ${top.severity.toUpperCase()} ${top.id}${fixed}]`;
 }
 
 function appendSection(lines: string[], title: string, items: string[]): void {

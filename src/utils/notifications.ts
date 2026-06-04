@@ -113,6 +113,10 @@ export function renderNotificationMessage(result: AnalysisResult): string {
     `findings: ${counts}`
   ];
   const upgradePriorities = buildUpgradePriorityText(result);
+  const vulnerabilityCount = result.risks.reduce(
+    (total, item) => total + (item.riskFactors.vulnerabilities ?? []).length,
+    0
+  );
 
   if (result.policy.reasons.length > 0) {
     lines.push(`policy: ${result.policy.reasons.join("; ")}`);
@@ -133,6 +137,10 @@ export function renderNotificationMessage(result: AnalysisResult): string {
 
   if (upgradePriorities) {
     lines.push(`upgrades: ${upgradePriorities}`);
+  }
+
+  if (vulnerabilityCount > 0) {
+    lines.push(`vulnerabilities: ${vulnerabilityCount}`);
   }
 
   return lines.join("\n");

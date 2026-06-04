@@ -310,11 +310,23 @@ Delivered:
 4. Markdown, PR comment, and notification rendering for new-finding data
 5. Output contract `1.7`
 
+### `v1.11` - OSV Vulnerability Intelligence
+
+Goal: add advisory-backed evidence to dependency risk decisions.
+
+Delivered:
+
+1. Optional OSV lookup for npm packages
+2. Configurable severity threshold and dev dependency inclusion
+3. Advisory id, severity, affected range, and fixed version output
+4. Report, PR comment, dashboard, and notification vulnerability summaries
+5. Output contract `1.8`
+
 Next build order:
 
 1. Optional runtime tracing to improve confidence accuracy
-2. OSV/CVE adapter after ownership model proves value
-3. Safe removal rollback helpers
+2. Safe removal rollback helpers
+3. Dependency owner mapping for advisory routing
 
 Park until later:
 

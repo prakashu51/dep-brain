@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## 1.11.0
+
+- Added optional OSV vulnerability lookup for risk analysis.
+- Added `risk.osv.enabled`, `risk.osv.severityThreshold`, and `risk.osv.includeDevDependencies` config.
+- Added advisory id, severity, affected range, and fixed version data under `riskFactors.vulnerabilities`.
+- Updated console, Markdown, dashboard, PR comment, and notification output with vulnerability data.
+- Bumped analysis output contract to `1.8` for vulnerability fields.
+
 ## 1.10.0
 
 - Added `--show-new-findings` for optional baseline-filtered finding summaries.

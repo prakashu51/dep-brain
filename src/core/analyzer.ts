@@ -71,6 +71,15 @@ export interface RiskFactors {
   dependencyType: "dependencies" | "devDependencies" | "unknown";
   transitiveDependencyCount: number;
   riskyTransitiveCount: number;
+  vulnerabilities: VulnerabilityRisk[];
+}
+
+export interface VulnerabilityRisk {
+  id: string;
+  severity: "low" | "medium" | "high" | "critical" | "unknown";
+  summary: string;
+  affectedRanges: string[];
+  fixedVersions: string[];
 }
 
 export type TrustScore = "high" | "medium" | "low";
@@ -203,7 +212,7 @@ export interface PackageAnalysisResult {
   extensions: Record<string, unknown>;
 }
 
-export const OUTPUT_VERSION = "1.7";
+export const OUTPUT_VERSION = "1.8";
 
 export interface ScoreBreakdown {
   baseScore: number;
@@ -415,7 +424,15 @@ function mergeConfig(
       lowTrustWeightThreshold:
         overrides.risk?.lowTrustWeightThreshold ?? base.risk.lowTrustWeightThreshold,
       mediumTrustWeightThreshold:
-        overrides.risk?.mediumTrustWeightThreshold ?? base.risk.mediumTrustWeightThreshold
+        overrides.risk?.mediumTrustWeightThreshold ?? base.risk.mediumTrustWeightThreshold,
+      osv: {
+        enabled: overrides.risk?.osv?.enabled ?? base.risk.osv.enabled,
+        severityThreshold:
+          overrides.risk?.osv?.severityThreshold ?? base.risk.osv.severityThreshold,
+        includeDevDependencies:
+          overrides.risk?.osv?.includeDevDependencies ??
+          base.risk.osv.includeDevDependencies
+      }
     },
     dashboard: {
       outputPath: overrides.dashboard?.outputPath ?? base.dashboard.outputPath
@@ -1081,7 +1098,8 @@ function normalizeRiskFactors(value: unknown): RiskFactors {
       hasRepository: false,
       dependencyType: "unknown",
       transitiveDependencyCount: 0,
-      riskyTransitiveCount: 0
+      riskyTransitiveCount: 0,
+      vulnerabilities: []
     };
   }
 
@@ -1103,8 +1121,43 @@ function normalizeRiskFactors(value: unknown): RiskFactors {
     transitiveDependencyCount:
       typeof factors.transitiveDependencyCount === "number" ? factors.transitiveDependencyCount : 0,
     riskyTransitiveCount:
-      typeof factors.riskyTransitiveCount === "number" ? factors.riskyTransitiveCount : 0
+      typeof factors.riskyTransitiveCount === "number" ? factors.riskyTransitiveCount : 0,
+    vulnerabilities: normalizeVulnerabilityRisks(factors.vulnerabilities)
   };
+}
+
+function normalizeVulnerabilityRisks(value: unknown): VulnerabilityRisk[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((entry) => {
+      if (!entry || typeof entry !== "object") {
+        return null;
+      }
+
+      const item = entry as Partial<VulnerabilityRisk>;
+      if (
+        typeof item.id !== "string" ||
+        (item.severity !== "low" &&
+          item.severity !== "medium" &&
+          item.severity !== "high" &&
+          item.severity !== "critical" &&
+          item.severity !== "unknown")
+      ) {
+        return null;
+      }
+
+      return {
+        id: item.id,
+        severity: item.severity,
+        summary: typeof item.summary === "string" ? item.summary : "",
+        affectedRanges: normalizeStringArray(item.affectedRanges),
+        fixedVersions: normalizeStringArray(item.fixedVersions)
+      };
+    })
+    .filter((entry): entry is VulnerabilityRisk => entry !== null);
 }
 
 function normalizeRiskTransitiveDependencies(value: unknown): RiskTransitiveDependency[] {

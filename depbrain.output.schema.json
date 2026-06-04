@@ -36,7 +36,7 @@
     },
     "riskFactors": {
       "type": "object",
-      "required": ["daysSincePublish", "downloads", "maintainersCount", "versionCount", "recentReleaseCount", "hasRepository", "dependencyType", "transitiveDependencyCount", "riskyTransitiveCount"],
+      "required": ["daysSincePublish", "downloads", "maintainersCount", "versionCount", "recentReleaseCount", "hasRepository", "dependencyType", "transitiveDependencyCount", "riskyTransitiveCount", "vulnerabilities"],
       "additionalProperties": false,
       "properties": {
         "daysSincePublish": { "type": ["number", "null"] },
@@ -47,7 +47,22 @@
         "hasRepository": { "type": "boolean" },
         "dependencyType": { "type": "string", "enum": ["dependencies", "devDependencies", "unknown"] },
         "transitiveDependencyCount": { "type": "number" },
-        "riskyTransitiveCount": { "type": "number" }
+        "riskyTransitiveCount": { "type": "number" },
+        "vulnerabilities": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "severity", "summary", "affectedRanges", "fixedVersions"],
+            "additionalProperties": false,
+            "properties": {
+              "id": { "type": "string" },
+              "severity": { "type": "string", "enum": ["low", "medium", "high", "critical", "unknown"] },
+              "summary": { "type": "string" },
+              "affectedRanges": { "type": "array", "items": { "type": "string" } },
+              "fixedVersions": { "type": "array", "items": { "type": "string" } }
+            }
+          }
+        }
       }
     },
     "riskTransitiveDependency": {
