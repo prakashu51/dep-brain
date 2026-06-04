@@ -35,6 +35,11 @@ export interface DepBrainConfig {
     lowDownloadThreshold: number;
     lowTrustWeightThreshold: number;
     mediumTrustWeightThreshold: number;
+    osv: {
+      enabled: boolean;
+      severityThreshold: "low" | "medium" | "high" | "critical";
+      includeDevDependencies: boolean;
+    };
   };
   dashboard: {
     outputPath: string;
@@ -100,7 +105,12 @@ export const defaultConfig: DepBrainConfig = {
     agingReleaseDays: 365,
     lowDownloadThreshold: 1000,
     lowTrustWeightThreshold: 6,
-    mediumTrustWeightThreshold: 3
+    mediumTrustWeightThreshold: 3,
+    osv: {
+      enabled: false,
+      severityThreshold: "high",
+      includeDevDependencies: false
+    }
   },
   dashboard: {
     outputPath: "depbrain-dashboard.html"
@@ -245,7 +255,21 @@ function normalizeConfig(loaded: Partial<DepBrainConfig>): DepBrainConfig {
       mediumTrustWeightThreshold: normalizeNumber(
         loaded.risk?.mediumTrustWeightThreshold,
         defaultConfig.risk.mediumTrustWeightThreshold
-      )
+      ),
+      osv: {
+        enabled: normalizeBoolean(
+          loaded.risk?.osv?.enabled,
+          defaultConfig.risk.osv.enabled
+        ),
+        severityThreshold: normalizeSeverityThreshold(
+          loaded.risk?.osv?.severityThreshold,
+          defaultConfig.risk.osv.severityThreshold
+        ),
+        includeDevDependencies: normalizeBoolean(
+          loaded.risk?.osv?.includeDevDependencies,
+          defaultConfig.risk.osv.includeDevDependencies
+        )
+      }
     },
     dashboard: {
       outputPath: normalizeString(
@@ -326,6 +350,15 @@ function normalizeNotificationTrigger(
   fallback: DepBrainConfig["notifications"]["on"]
 ): DepBrainConfig["notifications"]["on"] {
   return value === "always" || value === "failure" || value === "never"
+    ? value
+    : fallback;
+}
+
+function normalizeSeverityThreshold(
+  value: unknown,
+  fallback: DepBrainConfig["risk"]["osv"]["severityThreshold"]
+): DepBrainConfig["risk"]["osv"]["severityThreshold"] {
+  return value === "low" || value === "medium" || value === "high" || value === "critical"
     ? value
     : fallback;
 }

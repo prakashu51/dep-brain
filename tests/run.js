@@ -286,6 +286,68 @@ const tests = [
     }
   },
   {
+    name: "risk detection includes OSV vulnerabilities when enabled",
+    run: async () => {
+      const risks = await findRiskDependencies(
+        {
+          rootDir: "D:/fixture",
+          packageJsonPath: "D:/fixture/package.json",
+          dependencies: {
+            vulnerable: "^1.0.0"
+          },
+          devDependencies: {
+            "dev-vulnerable": "^1.0.0"
+          },
+          overrides: {},
+          scripts: {},
+          lockPackages: {}
+        },
+        {
+          thresholds: {
+            ...defaultConfig.risk,
+            osv: {
+              enabled: true,
+              severityThreshold: "high",
+              includeDevDependencies: false
+            }
+          },
+          resolvePackageMetadata: async () => ({
+            latestVersion: "1.0.1",
+            repository: "https://github.com/example/pkg",
+            homepage: null,
+            downloads: 100000,
+            daysSincePublish: 2,
+            maintainersCount: 3,
+            versionCount: 10,
+            recentReleaseCount: 1,
+            versions: ["1.0.0", "1.0.1"]
+          }),
+          resolveVulnerabilities: async (name) =>
+            name === "vulnerable"
+              ? [{
+                  id: "GHSA-1234",
+                  severity: "high",
+                  summary: "Prototype pollution",
+                  affectedRanges: ["0 - 1.0.1"],
+                  fixedVersions: ["1.0.1"]
+                }]
+              : [{
+                  id: "GHSA-dev",
+                  severity: "critical",
+                  summary: "Dev issue",
+                  affectedRanges: ["0 - 1.0.1"],
+                  fixedVersions: ["1.0.1"]
+                }]
+        }
+      );
+
+      assert.deepEqual(risks.map((item) => item.name), ["vulnerable"]);
+      assert.ok(risks[0].reasonCodes.includes("osv_vulnerability"));
+      assert.equal(risks[0].riskFactors.vulnerabilities[0].id, "GHSA-1234");
+      assert.equal(risks[0].recommendation.priority, "high");
+    }
+  },
+  {
     name: "risk detection suppresses weak and dev-only signals",
     run: async () => {
       const risks = await findRiskDependencies(
@@ -758,7 +820,7 @@ const tests = [
       assert.ok(result.risks.every((item) => typeof item.trustScore === "string"));
       assert.ok(result.risks.every((item) => typeof item.transitiveRiskScore === "number"));
       assert.ok(result.outdated.every((item) => item.advice && typeof item.advice.risk === "string"));
-      assert.equal(result.outputVersion, "1.7");
+      assert.equal(result.outputVersion, "1.8");
       assert.equal(result.newFindings, undefined);
       assert.equal(result.fixPlan, undefined);
     }
@@ -972,7 +1034,7 @@ const tests = [
         }
       };
       const report = renderJsonReport({
-        outputVersion: "1.7",
+        outputVersion: "1.8",
         rootDir: "D:/fixture",
         score: 100,
         scoreBreakdown: { baseScore: 100, duplicates: 0, outdated: 0, unused: 1, risks: 0, weights: { duplicateWeight: 5, outdatedWeight: 3, unusedWeight: 4, riskWeight: 10 } },
@@ -1011,7 +1073,7 @@ const tests = [
       });
       const parsed = JSON.parse(report);
 
-      assert.equal(parsed.outputVersion, "1.7");
+      assert.equal(parsed.outputVersion, "1.8");
       assert.equal(parsed.newFindings.counts.unused, 1);
       assert.equal(parsed.fixPlan.commands[0], "npm uninstall unused-lib");
     }

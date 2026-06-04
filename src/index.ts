@@ -27,6 +27,7 @@ export type {
   TopIssue,
   TrustScore,
   UnusedDependency,
+  VulnerabilityRisk,
   WorkspaceDependencyUsage,
   WorkspaceOwnershipSummary
 } from "./core/analyzer.js";
@@ -48,6 +49,8 @@ export type {
   SkippedFixItem
 } from "./core/fix-plan.js";
 export type { DepBrainConfig, DepBrainConfigOverrides } from "./utils/config.js";
+export { getOsvVulnerabilities } from "./utils/osv.js";
+export type { OsvSeverity, OsvVulnerability } from "./utils/osv.js";
 export {
   renderNotificationMessage,
   sendConfiguredNotifications,

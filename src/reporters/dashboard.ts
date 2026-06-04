@@ -16,6 +16,10 @@ export function renderDashboardReport(result: AnalysisResult): string {
     )
     .map(renderUpgradeAdvice)
     .join("");
+  const vulnerabilities = result.risks
+    .filter((item) => (item.riskFactors.vulnerabilities ?? []).length > 0)
+    .map(renderVulnerabilityHotspot)
+    .join("");
 
   return [
     "<!doctype html>",
@@ -94,6 +98,12 @@ export function renderDashboardReport(result: AnalysisResult): string {
       : '<p class="muted">No high-risk upgrades found.</p>',
     "</section>",
     '<section class="panel">',
+    "<h2>Vulnerabilities</h2>",
+    vulnerabilities.length > 0
+      ? `<ul>${vulnerabilities}</ul>`
+      : '<p class="muted">No OSV vulnerabilities found.</p>',
+    "</section>",
+    '<section class="panel">',
     "<h2>Transitive Risk Hotspots</h2>",
     transitiveHotspots.length > 0
       ? transitiveHotspots
@@ -148,6 +158,23 @@ function renderUpgradeAdvice(item: AnalysisResult["outdated"][number]): string {
     item.advice.releaseNotes[0]
       ? `<div class="muted">${escapeHtml(item.advice.releaseNotes[0])}</div>`
       : "",
+    "</li>"
+  ].join("");
+}
+
+function renderVulnerabilityHotspot(item: AnalysisResult["risks"][number]): string {
+  const vulnerabilities = (item.riskFactors.vulnerabilities ?? []).slice(0, 3);
+  return [
+    "<li>",
+    `<strong>${escapeHtml(item.name)}</strong>`,
+    "<ul>",
+    vulnerabilities
+      .map(
+        (entry) =>
+          `<li>${escapeHtml(entry.id)} <span class="muted">[${escapeHtml(entry.severity.toUpperCase())}]</span>${entry.fixedVersions[0] ? ` fixed ${escapeHtml(entry.fixedVersions[0])}` : ""}<div>${escapeHtml(entry.summary)}</div></li>`
+      )
+      .join(""),
+    "</ul>",
     "</li>"
   ].join("");
 }

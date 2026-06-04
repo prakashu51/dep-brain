@@ -50,10 +50,20 @@ export function renderPrCommentReport(
   }
 
   const upgradePriorities = summarizeUpgradePriorities(result);
+  const vulnerabilityCount = result.risks.reduce(
+    (total, item) => total + item.riskFactors.vulnerabilities.length,
+    0
+  );
   if (upgradePriorities) {
     lines.push("");
     lines.push("### Upgrade Priorities");
     lines.push(upgradePriorities);
+  }
+
+  if (vulnerabilityCount > 0) {
+    lines.push("");
+    lines.push("### Vulnerabilities");
+    lines.push(`${vulnerabilityCount} OSV advisories found.`);
   }
 
   lines.push("");

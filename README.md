@@ -6,7 +6,7 @@
 
 `dep-brain` is a CLI and library for explainable dependency intelligence in JavaScript and TypeScript projects.
 
-Current release `1.10.0` adds optional new-finding and fix-plan analysis fields with output contract `1.7`.
+Current release `1.11.0` adds optional OSV vulnerability intelligence with output contract `1.8`.
 
 ## Vision
 
@@ -40,7 +40,7 @@ The long-term goal is not just to list problems, but to answer:
 - Can I remove it safely?
 - What should I fix first?
 
-## 1.10 Highlights
+## 1.11 Highlights
 
 - Duplicate dependency detection with lockfile instance tracking
 - Unused dependency detection with runtime vs dev-tool heuristics
@@ -64,6 +64,7 @@ The long-term goal is not just to list problems, but to answer:
 - Guarded unused dependency apply mode via `dep-brain fix --unused --apply`
 - Optional new-finding summaries via `--show-new-findings`
 - Optional analysis fix plans via `--with-fix-plan`
+- Optional OSV advisory evidence for risk findings
 - Ranked top issues via `--top`
 - Baseline mode via `--baseline`
 - Focused analysis via `--focus`
@@ -189,7 +190,7 @@ Suggestions:
 dep-brain analyze --json
 ```
 
-Output includes `outputVersion` for schema stability. `dep-brain@1.10.0` writes contract version `1.7`.
+Output includes `outputVersion` for schema stability. `dep-brain@1.11.0` writes contract version `1.8`.
 
 Validate against:
 
@@ -268,6 +269,22 @@ dep-brain analyze --json --with-fix-plan --include-caution
 
 `--show-new-findings` adds optional `newFindings` data after baseline filtering. `--with-fix-plan` adds optional `fixPlan` data to analysis output without running uninstall commands.
 
+## OSV Vulnerabilities
+
+```json
+{
+  "risk": {
+    "osv": {
+      "enabled": true,
+      "severityThreshold": "high",
+      "includeDevDependencies": false
+    }
+  }
+}
+```
+
+OSV checks add advisory ids, severity, affected ranges, and fixed versions under `riskFactors.vulnerabilities`. Failed OSV requests are treated as unknown, not risky.
+
 ## Plugins
 
 ```json
@@ -332,7 +349,12 @@ Create a `depbrain.config.json` file in the project root:
     "agingReleaseDays": 365,
     "lowDownloadThreshold": 1000,
     "lowTrustWeightThreshold": 6,
-    "mediumTrustWeightThreshold": 3
+    "mediumTrustWeightThreshold": 3,
+    "osv": {
+      "enabled": false,
+      "severityThreshold": "high",
+      "includeDevDependencies": false
+    }
   },
   "dashboard": {
     "outputPath": "depbrain-dashboard.html"
@@ -378,6 +400,9 @@ Supported sections:
 - `risk.lowDownloadThreshold`
 - `risk.lowTrustWeightThreshold`
 - `risk.mediumTrustWeightThreshold`
+- `risk.osv.enabled`
+- `risk.osv.severityThreshold`
+- `risk.osv.includeDevDependencies`
 - `dashboard.outputPath`
 - `notifications.enabled`
 - `notifications.on`
@@ -456,7 +481,7 @@ src/
 
 ## Product Direction
 
-`dep-brain` is in `v1.10.0` production CLI stage, with current focus on additive automation metadata and guarded dependency cleanup.
+`dep-brain` is in `v1.11.0` production CLI stage, with current focus on vulnerability-backed risk intelligence and guarded dependency cleanup.
 
 Recent releases added:
 
@@ -469,6 +494,7 @@ Recent releases added:
 - unused dependency fix-plan dry runs
 - guarded unused dependency apply mode
 - optional new-finding and fix-plan analysis fields
+- optional OSV advisory evidence
 
 Project should optimize for trust, clarity, and actionability over flashy UI, generic graphs, or simply adding more checks.
 

@@ -4,7 +4,8 @@ import type {
   RiskDependency,
   RiskFactors,
   RiskTransitiveDependency,
-  TrustScore
+  TrustScore,
+  VulnerabilityRisk
 } from "../core/analyzer.js";
 import type { CheckResult } from "../core/types.js";
 import {
@@ -12,9 +13,11 @@ import {
   type PackageMetadata
 } from "../utils/npm-api.js";
 import type { DepBrainConfig } from "../utils/config.js";
+import { getOsvVulnerabilities } from "../utils/osv.js";
 
 export interface RiskCheckOptions {
   resolvePackageMetadata?: (name: string) => Promise<PackageMetadata | null>;
+  resolveVulnerabilities?: (name: string) => Promise<VulnerabilityRisk[]>;
   thresholds?: DepBrainConfig["risk"];
 }
 
@@ -33,6 +36,8 @@ export async function findRiskDependencies(
 ): Promise<RiskDependency[]> {
   const resolvePackageMetadata =
     options.resolvePackageMetadata ?? getPackageMetadata;
+  const resolveVulnerabilities =
+    options.resolveVulnerabilities ?? getOsvVulnerabilities;
   const thresholds = options.thresholds;
   const allNames = Object.keys({
     ...graph.dependencies,
@@ -53,7 +58,14 @@ export async function findRiskDependencies(
         ? "devDependencies"
         : "unknown";
 
-    const assessment = assessRisk(metadata, dependencyType, thresholds, 0);
+    const vulnerabilities = await resolveRiskVulnerabilities(
+      name,
+      dependencyType,
+      thresholds,
+      resolveVulnerabilities
+    );
+
+    const assessment = assessRisk(metadata, dependencyType, thresholds, 0, vulnerabilities);
     return {
       name,
       assessment
@@ -129,10 +141,30 @@ export async function runRiskCheck(
         trustScore: item.trustScore,
         riskFactors: item.riskFactors,
         transitiveRiskScore: item.transitiveRiskScore,
-        riskyTransitiveDeps: item.riskyTransitiveDeps
+      riskyTransitiveDeps: item.riskyTransitiveDeps
       }
     }))
   };
+}
+
+async function resolveRiskVulnerabilities(
+  name: string,
+  dependencyType: RiskFactors["dependencyType"],
+  thresholds: DepBrainConfig["risk"] | undefined,
+  resolveVulnerabilities: (name: string) => Promise<VulnerabilityRisk[]>
+): Promise<VulnerabilityRisk[]> {
+  if (!thresholds?.osv.enabled) {
+    return [];
+  }
+
+  if (dependencyType === "devDependencies" && !thresholds.osv.includeDevDependencies) {
+    return [];
+  }
+
+  const vulnerabilities = await resolveVulnerabilities(name);
+  return vulnerabilities.filter((item) =>
+    severityRank(item.severity) >= severityRank(thresholds.osv.severityThreshold)
+  );
 }
 
 function buildDirectRiskEntry(
@@ -299,7 +331,8 @@ function assessRisk(
   metadata: PackageMetadata,
   dependencyType: RiskFactors["dependencyType"],
   thresholds: DepBrainConfig["risk"] | undefined,
-  transitiveDependencyCount: number
+  transitiveDependencyCount: number,
+  vulnerabilities: VulnerabilityRisk[] = []
 ): PackageAssessment {
   const reasons: string[] = [];
   const reasonCodes: string[] = [];
@@ -309,6 +342,17 @@ function assessRisk(
   const lowDownloadThreshold = thresholds?.lowDownloadThreshold ?? 1000;
   const lowTrustWeightThreshold = thresholds?.lowTrustWeightThreshold ?? 6;
   const mediumTrustWeightThreshold = thresholds?.mediumTrustWeightThreshold ?? 3;
+
+  if (vulnerabilities.length > 0) {
+    const highestSeverity = vulnerabilities
+      .map((item) => item.severity)
+      .sort((left, right) => severityRank(right) - severityRank(left))[0];
+    reasons.push(
+      `${vulnerabilities.length} OSV vulnerabilit${vulnerabilities.length === 1 ? "y" : "ies"} found (${highestSeverity})`
+    );
+    reasonCodes.push("osv_vulnerability");
+    weight += highestSeverity === "critical" || highestSeverity === "high" ? 6 : 3;
+  }
 
   if (metadata.daysSincePublish !== null && metadata.daysSincePublish > staleReleaseDays) {
     reasons.push(`No release in over ${formatDays(staleReleaseDays)}`);
@@ -381,7 +425,8 @@ function assessRisk(
       hasRepository: Boolean(metadata.repository),
       dependencyType,
       transitiveDependencyCount,
-      riskyTransitiveCount: 0
+      riskyTransitiveCount: 0,
+      vulnerabilities
     }
   };
 }
@@ -405,7 +450,8 @@ function buildUnknownAssessment(
       hasRepository: false,
       dependencyType,
       transitiveDependencyCount: 0,
-      riskyTransitiveCount: 0
+      riskyTransitiveCount: 0,
+      vulnerabilities: []
     }
   };
 }
@@ -433,6 +479,22 @@ function shouldReportRisk(
   }
 
   return true;
+}
+
+function severityRank(value: VulnerabilityRisk["severity"]): number {
+  if (value === "critical") {
+    return 4;
+  }
+  if (value === "high") {
+    return 3;
+  }
+  if (value === "medium") {
+    return 2;
+  }
+  if (value === "low") {
+    return 1;
+  }
+  return 0;
 }
 
 function buildRiskRecommendation(

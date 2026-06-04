@@ -54,7 +54,16 @@
         "agingReleaseDays": { "type": "number" },
         "lowDownloadThreshold": { "type": "number" },
         "lowTrustWeightThreshold": { "type": "number" },
-        "mediumTrustWeightThreshold": { "type": "number" }
+        "mediumTrustWeightThreshold": { "type": "number" },
+        "osv": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "severityThreshold": { "type": "string", "enum": ["low", "medium", "high", "critical"] },
+            "includeDevDependencies": { "type": "boolean" }
+          }
+        }
       }
     },
     "dashboard": {
