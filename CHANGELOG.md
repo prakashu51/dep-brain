@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## 1.12.0
+
+- Added `dep-brain trace -- <command>` to capture runtime package and file evidence.
+- Added `--runtime-trace <path>` to merge runtime evidence into unused dependency analysis.
+- Added `runtimeTrace.outputPath` config and schema support.
+- Updated console and Markdown reports with runtime evidence counts.
+- Bumped analysis output contract to `1.9` for optional `runtimeEvidence`.
+
 ## 1.11.0
 
 - Added optional OSV vulnerability lookup for risk analysis.

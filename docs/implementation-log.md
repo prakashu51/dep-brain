@@ -18,6 +18,49 @@ Use this format for future entries:
 - Follow-up notes
 ```
 
+## 2026-06-08 - v1.12 runtime trace evidence iteration
+
+### What changed
+
+- Added runtime trace capture through `dep-brain trace -- <command>`.
+- Added `--runtime-trace <path>` analysis input.
+- Added runtime package evidence to unused dependency detection.
+- Added `runtimeEvidence` output and runtime trace config.
+- Bumped package version to `1.12.0` and output contract to `1.9`.
+
+### Why it changed
+
+- v1.12 needs real execution evidence to reduce unused dependency false positives for dynamic loaders, dependency injection, and framework bootstraps.
+
+### Files touched
+
+- `src/utils/runtime-trace.ts`
+- `src/checks/unused.ts`
+- `src/core/analyzer.ts`
+- `src/core/types.ts`
+- `src/utils/config.ts`
+- `src/cli.ts`
+- `src/reporters/console.ts`
+- `src/reporters/markdown.ts`
+- `src/index.ts`
+- `depbrain.config.json`
+- `depbrain.config.schema.json`
+- `depbrain.output.schema.json`
+- `package.json`
+- `package-lock.json`
+- `CHANGELOG.md`
+- `README.md`
+- `docs/product-roadmap.md`
+- `docs/implementation-log.md`
+- `tests/run.js`
+
+### Verification completed
+
+- `cmd /c npm run typecheck`
+- `cmd /c npm run test`
+- `cmd /c node dist/cli.js trace --out depbrain-runtime-smoke.json -- node -e "require('fs')"`
+- `cmd /c npm pack --dry-run`
+
 ## 2026-06-03 - v1.11 OSV vulnerability intelligence iteration
 
 ### What changed

@@ -6,7 +6,7 @@
 
 `dep-brain` is a CLI and library for explainable dependency intelligence in JavaScript and TypeScript projects.
 
-Current release `1.11.0` adds optional OSV vulnerability intelligence with output contract `1.8`.
+Current release `1.12.0` adds runtime trace evidence for unused dependency analysis with output contract `1.9`.
 
 ## Vision
 
@@ -40,7 +40,7 @@ The long-term goal is not just to list problems, but to answer:
 - Can I remove it safely?
 - What should I fix first?
 
-## 1.11 Highlights
+## 1.12 Highlights
 
 - Duplicate dependency detection with lockfile instance tracking
 - Unused dependency detection with runtime vs dev-tool heuristics
@@ -65,6 +65,8 @@ The long-term goal is not just to list problems, but to answer:
 - Optional new-finding summaries via `--show-new-findings`
 - Optional analysis fix plans via `--with-fix-plan`
 - Optional OSV advisory evidence for risk findings
+- Runtime trace capture via `dep-brain trace`
+- Runtime trace evidence for reducing unused false positives via `--runtime-trace`
 - Ranked top issues via `--top`
 - Baseline mode via `--baseline`
 - Focused analysis via `--focus`
@@ -105,6 +107,8 @@ npx dep-brain fix --unused --apply
 npx dep-brain fix --unused --apply --test-command "npm test"
 npx dep-brain analyze --json --show-new-findings
 npx dep-brain analyze --json --with-fix-plan
+npx dep-brain trace -- node app.js
+npx dep-brain analyze --runtime-trace depbrain-runtime.json
 npx dep-brain analyze --focus duplicates
 npx dep-brain analyze --ci
 npx dep-brain analyze --baseline depbrain-baseline.json
@@ -190,7 +194,7 @@ Suggestions:
 dep-brain analyze --json
 ```
 
-Output includes `outputVersion` for schema stability. `dep-brain@1.11.0` writes contract version `1.8`.
+Output includes `outputVersion` for schema stability. `dep-brain@1.12.0` writes contract version `1.9`.
 
 Validate against:
 
@@ -285,6 +289,15 @@ dep-brain analyze --json --with-fix-plan --include-caution
 
 OSV checks add advisory ids, severity, affected ranges, and fixed versions under `riskFactors.vulnerabilities`. Failed OSV requests are treated as unknown, not risky.
 
+## Runtime Traces
+
+```bash
+dep-brain trace -- node app.js
+dep-brain analyze --runtime-trace depbrain-runtime.json
+```
+
+Runtime traces record packages and files loaded by a real command. During analysis, packages seen in the trace count as used, which reduces unused false positives for dependency injection, dynamic imports, plugin loaders, and framework bootstraps.
+
 ## Plugins
 
 ```json
@@ -373,6 +386,9 @@ Create a `depbrain.config.json` file in the project root:
   },
   "scan": {
     "excludePaths": ["node_modules", "dist", "build", "coverage", ".git"]
+  },
+  "runtimeTrace": {
+    "outputPath": "depbrain-runtime.json"
   }
 }
 ```
@@ -415,6 +431,7 @@ Supported sections:
 - `ignore.prefixes`
 - `ignore.patterns`
 - `scan.excludePaths`
+- `runtimeTrace.outputPath`
 
 Sample config file:
 
@@ -481,7 +498,7 @@ src/
 
 ## Product Direction
 
-`dep-brain` is in `v1.11.0` production CLI stage, with current focus on vulnerability-backed risk intelligence and guarded dependency cleanup.
+`dep-brain` is in `v1.12.0` production CLI stage, with current focus on runtime-backed dependency evidence and guarded dependency cleanup.
 
 Recent releases added:
 
@@ -495,6 +512,7 @@ Recent releases added:
 - guarded unused dependency apply mode
 - optional new-finding and fix-plan analysis fields
 - optional OSV advisory evidence
+- runtime trace evidence for unused dependency analysis
 
 Project should optimize for trust, clarity, and actionability over flashy UI, generic graphs, or simply adding more checks.
 

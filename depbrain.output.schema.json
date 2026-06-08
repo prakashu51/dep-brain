@@ -77,6 +77,18 @@
         "introducedByPaths": { "type": "array", "items": { "type": "string" } }
       }
     },
+    "runtimeEvidence": {
+      "type": "object",
+      "required": ["tracePath", "packages", "files", "packageCount", "fileCount"],
+      "additionalProperties": false,
+      "properties": {
+        "tracePath": { "type": "string" },
+        "packages": { "type": "array", "items": { "type": "string" } },
+        "files": { "type": "array", "items": { "type": "string" } },
+        "packageCount": { "type": "number" },
+        "fileCount": { "type": "number" }
+      }
+    },
     "ownershipSummary": {
       "type": "object",
       "required": ["duplicates", "unused", "outdated", "risks"],
