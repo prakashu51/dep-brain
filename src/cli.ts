@@ -13,6 +13,7 @@ import { renderDashboardReport } from "./reporters/dashboard.js";
 import { shouldPostPrComment, upsertGitHubPrComment, type PrCommentTrigger } from "./utils/github.js";
 import { sendConfiguredNotifications } from "./utils/notifications.js";
 import { defaultConfig, type DepBrainConfig, type DepBrainConfigOverrides } from "./utils/config.js";
+import { runRuntimeTrace } from "./utils/runtime-trace.js";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 
@@ -59,6 +60,30 @@ async function main(): Promise<void> {
   }
 
   if (command !== "analyze") {
+    if (command === "trace") {
+      const separatorIndex = args.indexOf("--");
+      const traceOptions = separatorIndex >= 0 ? args.slice(1, separatorIndex) : args.slice(1);
+      const commandArgs = separatorIndex >= 0 ? args.slice(separatorIndex + 1) : [];
+      const traceOut = readTraceOption(traceOptions, "--out") ?? defaultConfig.runtimeTrace.outputPath;
+
+      try {
+        const traceResult = await runRuntimeTrace(commandArgs, {
+          cwd: process.cwd(),
+          outputPath: traceOut
+        });
+        console.log(`Runtime trace written to ${path.relative(process.cwd(), traceResult.outputPath) || traceResult.outputPath}`);
+        if (traceResult.exitCode !== 0) {
+          process.exitCode = traceResult.exitCode;
+        }
+        return;
+      } catch (error) {
+        console.error("Runtime trace failed.");
+        console.error(error);
+        process.exitCode = 1;
+        return;
+      }
+    }
+
     if (command === "fix") {
       if (!flags.has("--unused")) {
         console.error("Missing --unused for fix");
@@ -218,7 +243,8 @@ async function main(): Promise<void> {
       configPath: optionValues.get("--config"),
       config: cliConfig,
       baseline,
-      focus: parseFocus(optionValues.get("--focus"))
+      focus: parseFocus(optionValues.get("--focus")),
+      runtimeTracePath: optionValues.get("--runtime-trace")
     });
 
     if (flags.has("--show-new-findings")) {
@@ -389,6 +415,7 @@ function printHelp(): void {
   console.log(
     "  dep-brain analyze [path] [--json] [--md] [--sarif] [--top] [--dashboard] [--notify] [--pr-comment] [--show-new-findings] [--with-fix-plan] [--focus kind] [--ci] [--out path] [--config path] [--baseline path] [--min-score n] [--fail-on-risks]"
   );
+  console.log("  dep-brain trace [--out depbrain-runtime.json] -- <command>");
   console.log("  dep-brain report --from <file> [--md] [--json] [--sarif] [--top] [--advise] [--dashboard] [--out path]");
   console.log("  dep-brain fix [path] --unused (--dry-run | --apply) [--include-caution] [--allow-dirty] [--test-command cmd] [--json] [--out path]");
   console.log("  dep-brain config [path] [--config path]");
@@ -414,6 +441,7 @@ function printHelp(): void {
   console.log("  --ci                Apply low-noise CI defaults");
   console.log("  --config <path>     Path to depbrain.config.json");
   console.log("  --baseline <path>   Ignore findings already present in a baseline JSON report");
+  console.log("  --runtime-trace <path> Use runtime evidence to reduce unused false positives");
   console.log("  --from <file>       Read analysis JSON from file");
   console.log("  --out <path>        Write output to a file");
   console.log("  --unused            Build an unused dependency fix plan");
@@ -518,6 +546,16 @@ function sanitizeForLog(value: string): string {
 
 function resolveUserPath(value: string): string {
   return path.resolve(process.cwd(), value);
+}
+
+function readTraceOption(args: string[], name: string): string | undefined {
+  const index = args.indexOf(name);
+  if (index < 0) {
+    return undefined;
+  }
+
+  const value = args[index + 1];
+  return value && !value.startsWith("--") ? value : undefined;
 }
 
 function renderTopIssuesReport(result: Awaited<ReturnType<typeof analyzeProject>>): string {

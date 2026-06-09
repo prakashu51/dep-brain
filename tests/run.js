@@ -24,6 +24,7 @@ import { sendConfiguredNotifications } from "../dist/utils/notifications.js";
 import { collectProjectFiles } from "../dist/utils/file-parser.js";
 import { buildAnalysisContext } from "../dist/core/context.js";
 import { defaultConfig } from "../dist/utils/config.js";
+import { loadRuntimeTrace } from "../dist/utils/runtime-trace.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -566,6 +567,71 @@ const tests = [
     }
   },
   {
+    name: "runtime trace loader normalizes package evidence",
+    run: async () => {
+      const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "depbrain-runtime-"));
+      const tracePath = path.join(tempRoot, "depbrain-runtime.json");
+      await fs.writeFile(
+        tracePath,
+        JSON.stringify({
+          version: "1.0",
+          packages: ["runtime-lib", "runtime-lib", "@scope/pkg"],
+          files: ["b.js", "a.js", "a.js"],
+          startedAt: "2026-06-08T00:00:00.000Z",
+          endedAt: "2026-06-08T00:00:01.000Z"
+        }),
+        "utf8"
+      );
+
+      const evidence = await loadRuntimeTrace(tracePath);
+
+      assert.deepEqual(evidence.packages, ["@scope/pkg", "runtime-lib"]);
+      assert.deepEqual(evidence.files, ["a.js", "b.js"]);
+      assert.equal(evidence.packageCount, 2);
+      assert.equal(evidence.fileCount, 2);
+      assert.equal(await loadRuntimeTrace(path.join(tempRoot, "missing.json")), null);
+    }
+  },
+  {
+    name: "unused detection suppresses packages seen in runtime trace",
+    run: async () => {
+      const unused = await findUnusedDependencies(
+        "D:/fixture",
+        {
+          rootDir: "D:/fixture",
+          packageJsonPath: "D:/fixture/package.json",
+          dependencies: {
+            "runtime-lib": "^1.0.0",
+            "unused-lib": "^1.0.0"
+          },
+          devDependencies: {
+            "runtime-tool": "^1.0.0",
+            "unused-tool": "^1.0.0"
+          },
+          overrides: {},
+          scripts: {},
+          lockPackages: {}
+        },
+        [],
+        {
+          hasTypeScriptConfig: false,
+          runtimeEvidence: {
+            tracePath: "D:/fixture/depbrain-runtime.json",
+            packages: ["runtime-lib", "runtime-tool"],
+            files: [],
+            packageCount: 2,
+            fileCount: 0
+          }
+        }
+      );
+
+      assert.deepEqual(
+        unused.map((item) => item.name),
+        ["unused-lib", "unused-tool"]
+      );
+    }
+  },
+  {
     name: "health scorer applies weighted deductions",
     run: async () => {
       assert.equal(
@@ -820,7 +886,7 @@ const tests = [
       assert.ok(result.risks.every((item) => typeof item.trustScore === "string"));
       assert.ok(result.risks.every((item) => typeof item.transitiveRiskScore === "number"));
       assert.ok(result.outdated.every((item) => item.advice && typeof item.advice.risk === "string"));
-      assert.equal(result.outputVersion, "1.8");
+      assert.equal(result.outputVersion, "1.9");
       assert.equal(result.newFindings, undefined);
       assert.equal(result.fixPlan, undefined);
     }
@@ -1034,7 +1100,7 @@ const tests = [
         }
       };
       const report = renderJsonReport({
-        outputVersion: "1.8",
+        outputVersion: "1.9",
         rootDir: "D:/fixture",
         score: 100,
         scoreBreakdown: { baseScore: 100, duplicates: 0, outdated: 0, unused: 1, risks: 0, weights: { duplicateWeight: 5, outdatedWeight: 3, unusedWeight: 4, riskWeight: 10 } },
@@ -1073,7 +1139,7 @@ const tests = [
       });
       const parsed = JSON.parse(report);
 
-      assert.equal(parsed.outputVersion, "1.8");
+      assert.equal(parsed.outputVersion, "1.9");
       assert.equal(parsed.newFindings.counts.unused, 1);
       assert.equal(parsed.fixPlan.commands[0], "npm uninstall unused-lib");
     }

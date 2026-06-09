@@ -10,6 +10,7 @@ import {
   type DepBrainConfig,
   type DepBrainConfigOverrides
 } from "../utils/config.js";
+import { loadRuntimeTrace, type RuntimeEvidence } from "../utils/runtime-trace.js";
 import { findWorkspacePackages } from "../utils/workspaces.js";
 import { buildDependencyGraph } from "./graph-builder.js";
 import { PluginManager } from "./plugin-manager.js";
@@ -24,6 +25,7 @@ export interface AnalysisOptions {
   config?: DepBrainConfigOverrides;
   baseline?: DepBrainBaseline;
   focus?: AnalysisFocus;
+  runtimeTracePath?: string;
 }
 
 export type AnalysisFocus = "all" | "duplicates" | "unused" | "outdated" | "risks" | "health";
@@ -178,6 +180,7 @@ export interface AnalysisResult {
   extensions: Record<string, unknown>;
   config: DepBrainConfig;
   packages?: PackageAnalysisResult[];
+  runtimeEvidence?: RuntimeEvidence;
   newFindings?: NewFindingsSummary;
   fixPlan?: FixPlan;
 }
@@ -212,7 +215,7 @@ export interface PackageAnalysisResult {
   extensions: Record<string, unknown>;
 }
 
-export const OUTPUT_VERSION = "1.8";
+export const OUTPUT_VERSION = "1.9";
 
 export interface ScoreBreakdown {
   baseScore: number;
@@ -235,6 +238,7 @@ export async function analyzeProject(
   const loadedConfig = await loadDepBrainConfig(rootDir, options.configPath);
   const config = mergeConfig(loadedConfig, options.config);
   const focus = options.focus ?? "all";
+  const runtimeEvidence = await resolveRuntimeEvidence(rootDir, options.runtimeTracePath);
   const plugins = await PluginManager.load(rootDir, config);
   await plugins.runPreScan({ rootDir, config });
   const workspaces = await findWorkspacePackages(rootDir);
@@ -242,7 +246,8 @@ export async function analyzeProject(
   if (workspaces.length === 0) {
     const result = await analyzeSingleProject(rootDir, config, {
       baseline: options.baseline,
-      focus
+      focus,
+      runtimeEvidence
     });
     return plugins.runPostScan(result);
   }
@@ -262,7 +267,8 @@ export async function analyzeProject(
   for (const workspace of workspaces) {
     const result = await analyzeSingleProject(workspace.rootDir, config, {
       packageName: workspace.name,
-      focus
+      focus,
+      runtimeEvidence
     });
     packages.push({ ...result, name: workspace.name });
   }
@@ -367,7 +373,8 @@ export async function analyzeProject(
     }),
     extensions: {},
     config,
-    packages
+    packages,
+    ...(runtimeEvidence ? { runtimeEvidence } : {})
   };
 
   return plugins.runPostScan(result);
@@ -459,8 +466,24 @@ function mergeConfig(
     scan: {
       excludePaths:
         overrides.scan?.excludePaths ?? base.scan.excludePaths
+    },
+    runtimeTrace: {
+      outputPath:
+        overrides.runtimeTrace?.outputPath ?? base.runtimeTrace.outputPath
     }
   };
+}
+
+async function resolveRuntimeEvidence(
+  rootDir: string,
+  runtimeTracePath: string | undefined
+): Promise<RuntimeEvidence | undefined> {
+  if (!runtimeTracePath) {
+    return undefined;
+  }
+
+  const evidence = await loadRuntimeTrace(path.resolve(rootDir, runtimeTracePath));
+  return evidence ?? undefined;
 }
 
 function evaluatePolicy(
@@ -506,9 +529,17 @@ function evaluatePolicy(
 async function analyzeSingleProject(
   rootDir: string,
   config: DepBrainConfig,
-  options: { packageName?: string; baseline?: DepBrainBaseline; focus?: AnalysisFocus } = {}
+  options: {
+    packageName?: string;
+    baseline?: DepBrainBaseline;
+    focus?: AnalysisFocus;
+    runtimeEvidence?: RuntimeEvidence;
+  } = {}
 ): Promise<AnalysisResult> {
-  const context = await buildAnalysisContext(rootDir, config);
+  const context = {
+    ...(await buildAnalysisContext(rootDir, config)),
+    runtimeEvidence: options.runtimeEvidence
+  };
   const results = await runChecks(context, options.focus ?? "all", config);
   const issueGroups = normalizeIssues(results, config);
 
@@ -604,7 +635,8 @@ async function analyzeSingleProject(
       risks: baselineFiltered.risks
     }),
     extensions: {},
-    config
+    config,
+    ...(options.runtimeEvidence ? { runtimeEvidence: options.runtimeEvidence } : {})
   };
 }
 
@@ -631,14 +663,11 @@ function shouldIgnorePackage(
   });
 }
 
-async function runChecks(context: {
-  graph: import("./graph-builder.js").DependencyGraph;
-  rootDir: string;
-  sourceText: string;
-  projectFiles: string[];
-  fileEntries: { path: string; content: string }[];
-  hasTypeScriptConfig: boolean;
-}, focus: AnalysisFocus, config: DepBrainConfig): Promise<CheckResult[]> {
+async function runChecks(
+  context: import("./types.js").AnalysisContext,
+  focus: AnalysisFocus,
+  config: DepBrainConfig
+): Promise<CheckResult[]> {
   const checks = [
     {
       name: "duplicate",

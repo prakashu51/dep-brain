@@ -2,6 +2,7 @@ import path from "node:path";
 import type { Recommendation, UnusedDependency } from "../core/analyzer.js";
 import type { DependencyGraph } from "../core/graph-builder.js";
 import type { AnalysisContext, CheckResult } from "../core/types.js";
+import type { RuntimeEvidence } from "../utils/runtime-trace.js";
 
 const SOURCE_FILE_PATTERN = /\.(c|m)?(t|j)sx?$/;
 const CONFIG_FILE_PATTERN =
@@ -31,7 +32,7 @@ export async function findUnusedDependencies(
   rootDir: string,
   graph: DependencyGraph,
   fileEntries: { path: string; content: string }[],
-  options: { hasTypeScriptConfig: boolean }
+  options: { hasTypeScriptConfig: boolean; runtimeEvidence?: RuntimeEvidence }
 ): Promise<UnusedDependency[]> {
   const projectFiles = fileEntries
     .map((entry) => entry.path)
@@ -63,6 +64,11 @@ export async function findUnusedDependencies(
     for (const packageName of inferPackagesFromScriptReference(referencedBinary)) {
       devUsed.add(packageName);
     }
+  }
+
+  for (const packageName of options.runtimeEvidence?.packages ?? []) {
+    runtimeUsed.add(packageName);
+    devUsed.add(packageName);
   }
 
   const hasTypeScriptSources = projectFiles.some((filePath) => /\.(c|m)?tsx?$/.test(filePath));
@@ -102,7 +108,10 @@ export async function runUnusedCheck(
     context.rootDir,
     context.graph,
     context.fileEntries,
-    { hasTypeScriptConfig: context.hasTypeScriptConfig }
+    {
+      hasTypeScriptConfig: context.hasTypeScriptConfig,
+      runtimeEvidence: context.runtimeEvidence
+    }
   );
 
   return {

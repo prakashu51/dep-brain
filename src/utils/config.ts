@@ -59,6 +59,9 @@ export interface DepBrainConfig {
   scan: {
     excludePaths: string[];
   };
+  runtimeTrace: {
+    outputPath: string;
+  };
 }
 
 export interface DepBrainConfigOverrides {
@@ -71,6 +74,7 @@ export interface DepBrainConfigOverrides {
   notifications?: Partial<DepBrainConfig["notifications"]>;
   scoring?: Partial<DepBrainConfig["scoring"]>;
   scan?: Partial<DepBrainConfig["scan"]>;
+  runtimeTrace?: Partial<DepBrainConfig["runtimeTrace"]>;
 }
 
 export const defaultConfig: DepBrainConfig = {
@@ -129,6 +133,9 @@ export const defaultConfig: DepBrainConfig = {
   },
   scan: {
     excludePaths: ["node_modules", "dist", "build", "coverage", ".git"]
+  },
+  runtimeTrace: {
+    outputPath: "depbrain-runtime.json"
   }
 };
 
@@ -317,6 +324,12 @@ function normalizeConfig(loaded: Partial<DepBrainConfig>): DepBrainConfig {
       excludePaths: normalizeStringArray(
         loaded.scan?.excludePaths,
         defaultConfig.scan.excludePaths
+      )
+    },
+    runtimeTrace: {
+      outputPath: normalizeString(
+        loaded.runtimeTrace?.outputPath,
+        defaultConfig.runtimeTrace.outputPath
       )
     }
   };

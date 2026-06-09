@@ -52,6 +52,15 @@ export type { DepBrainConfig, DepBrainConfigOverrides } from "./utils/config.js"
 export { getOsvVulnerabilities } from "./utils/osv.js";
 export type { OsvSeverity, OsvVulnerability } from "./utils/osv.js";
 export {
+  loadRuntimeTrace,
+  runRuntimeTrace
+} from "./utils/runtime-trace.js";
+export type {
+  RuntimeEvidence,
+  RuntimeTrace,
+  RuntimeTraceRunResult
+} from "./utils/runtime-trace.js";
+export {
   renderNotificationMessage,
   sendConfiguredNotifications,
   shouldSendNotification

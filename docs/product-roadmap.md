@@ -322,11 +322,23 @@ Delivered:
 4. Report, PR comment, dashboard, and notification vulnerability summaries
 5. Output contract `1.8`
 
+### `v1.12` - Runtime Trace Evidence
+
+Goal: reduce unused dependency false positives with runtime evidence from real commands.
+
+Delivered:
+
+1. `dep-brain trace -- <command>`
+2. `--runtime-trace <path>` analysis input
+3. `runtimeTrace.outputPath` config
+4. Runtime package evidence suppression for unused dependencies
+5. Output contract `1.9`
+
 Next build order:
 
-1. Optional runtime tracing to improve confidence accuracy
-2. Safe removal rollback helpers
-3. Dependency owner mapping for advisory routing
+1. Safe removal rollback helpers
+2. Dependency owner mapping for advisory routing
+3. CI artifact helpers for dashboards and traces
 
 Park until later:
 

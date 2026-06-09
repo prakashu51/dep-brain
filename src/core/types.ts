@@ -26,6 +26,7 @@ export type AnalysisContext = {
   projectFiles: string[];
   fileEntries: { path: string; content: string }[];
   hasTypeScriptConfig: boolean;
+  runtimeEvidence?: import("../utils/runtime-trace.js").RuntimeEvidence;
 };
 
 export type CheckRunner = {

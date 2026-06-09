@@ -18,6 +18,11 @@ export function renderMarkdownReport(result: AnalysisResult): string {
   lines.push(`- **Project Health:** ${result.score}/100`);
   lines.push(`- **Path:** ${result.rootDir}`);
   lines.push(`- **Policy:** ${result.policy.passed ? "PASS" : "FAIL"}`);
+  if (result.runtimeEvidence) {
+    lines.push(
+      `- **Runtime Evidence:** ${result.runtimeEvidence.packageCount} packages, ${result.runtimeEvidence.fileCount} files`
+    );
+  }
   lines.push(
     `- **Score Breakdown:** base ${result.scoreBreakdown.baseScore} - dup ${result.scoreBreakdown.duplicates} - outdated ${result.scoreBreakdown.outdated} - unused ${result.scoreBreakdown.unused} - risk ${result.scoreBreakdown.risks}`
   );

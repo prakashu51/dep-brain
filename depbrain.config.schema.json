@@ -99,6 +99,13 @@
       "properties": {
         "excludePaths": { "type": "array", "items": { "type": "string" } }
       }
+    },
+    "runtimeTrace": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "outputPath": { "type": "string" }
+      }
     }
   }
 }

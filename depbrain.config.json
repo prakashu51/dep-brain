@@ -54,5 +54,8 @@
   },
   "scan": {
     "excludePaths": ["node_modules", "dist", "build", "coverage", ".git"]
+  },
+  "runtimeTrace": {
+    "outputPath": "depbrain-runtime.json"
   }
 }
