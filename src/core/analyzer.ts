@@ -18,6 +18,7 @@ import { calculateHealthScore, calculateScoreDeductions } from "./scorer.js";
 import { buildAnalysisContext } from "./context.js";
 import type { CheckResult, Issue } from "./types.js";
 import type { FixPlan } from "./fix-plan.js";
+import { attributeOwners } from "./ownership.js";
 
 export interface AnalysisOptions {
   rootDir?: string;
@@ -104,6 +105,7 @@ export interface DuplicateDependency {
   reasonCodes: string[];
   explanation: string[];
   recommendation: Recommendation;
+  owners?: string[];
 }
 
 export interface UnusedDependency {
@@ -114,6 +116,7 @@ export interface UnusedDependency {
   reasonCodes: string[];
   explanation: string[];
   recommendation: Recommendation;
+  owners?: string[];
 }
 
 export interface OutdatedDependency {
@@ -127,6 +130,7 @@ export interface OutdatedDependency {
   explanation: string[];
   advice: OutdatedDependencyAdvice;
   recommendation: Recommendation;
+  owners?: string[];
 }
 
 export interface OutdatedDependencyAdvice {
@@ -151,6 +155,7 @@ export interface RiskDependency {
   transitiveRiskScore: number;
   riskyTransitiveDeps: RiskTransitiveDependency[];
   recommendation: Recommendation;
+  owners?: string[];
 }
 
 export interface TopIssue {
@@ -162,6 +167,7 @@ export interface TopIssue {
   summary: string;
   trustScore?: TrustScore;
   recommendation: Recommendation;
+  owners?: string[];
 }
 
 export interface AnalysisResult {
@@ -259,7 +265,9 @@ export async function analyzeProject(
           (await runDuplicateCheck(rootGraph)).issues,
           "duplicates",
           config
-        )
+        ),
+        config,
+        ""
       )
     : [];
 
@@ -268,7 +276,8 @@ export async function analyzeProject(
     const result = await analyzeSingleProject(workspace.rootDir, config, {
       packageName: workspace.name,
       focus,
-      runtimeEvidence
+      runtimeEvidence,
+      projectRootDir: rootDir
     });
     packages.push({ ...result, name: workspace.name });
   }
@@ -282,7 +291,10 @@ export async function analyzeProject(
 
   const attributedDuplicates = addWorkspaceAttribution(
     duplicates,
-    workspaceGraphs
+    workspaceGraphs,
+    config,
+    rootDir,
+    workspaces
   );
 
   const rawUnused = packages.flatMap((pkg) =>
@@ -534,6 +546,7 @@ async function analyzeSingleProject(
     baseline?: DepBrainBaseline;
     focus?: AnalysisFocus;
     runtimeEvidence?: RuntimeEvidence;
+    projectRootDir?: string;
   } = {}
 ): Promise<AnalysisResult> {
   const context = {
@@ -543,10 +556,14 @@ async function analyzeSingleProject(
   const results = await runChecks(context, options.focus ?? "all", config);
   const issueGroups = normalizeIssues(results, config);
 
-  const duplicates = mapDuplicateIssues(issueGroups.duplicates);
-  const unused = mapUnusedIssues(issueGroups.unused);
-  const outdated = mapOutdatedIssues(issueGroups.outdated);
-  const risks = mapRiskIssues(issueGroups.risks);
+  const projectRootDir = options.projectRootDir ?? rootDir;
+  const relativePath = path.relative(projectRootDir, rootDir).replace(/\\/g, "/");
+  const matchPath = relativePath ? `${relativePath}/` : "";
+
+  const duplicates = mapDuplicateIssues(issueGroups.duplicates, config, matchPath);
+  const unused = mapUnusedIssues(issueGroups.unused, config, matchPath);
+  const outdated = mapOutdatedIssues(issueGroups.outdated, config, matchPath);
+  const risks = mapRiskIssues(issueGroups.risks, config, matchPath);
 
   const scopedUnused =
     options.packageName && options.packageName.trim().length > 0
@@ -750,67 +767,103 @@ function filterIssues(
   });
 }
 
-function mapDuplicateIssues(issues: Issue[]): DuplicateDependency[] {
-  return issues.map((issue) => ({
-    name: String(issue.meta?.name ?? issue.package ?? "unknown"),
-    versions: Array.isArray(issue.meta?.versions) ? (issue.meta?.versions as string[]) : [],
-    instances: Array.isArray(issue.meta?.instances)
-      ? (issue.meta?.instances as { path: string; version: string }[])
-      : [],
-    workspaceUsage: normalizeWorkspaceUsage(issue.meta?.workspaceUsage),
-    rootCause: normalizeStringArray(issue.meta?.rootCause),
-    confidence: normalizeConfidence(issue.confidence),
-    reasonCodes: normalizeStringArray(issue.reasonCodes),
-    explanation: normalizeStringArray(issue.explanation),
-    recommendation: buildDuplicateRecommendation(issue)
-  }));
+function mapDuplicateIssues(
+  issues: Issue[],
+  config: DepBrainConfig,
+  workspacePath?: string
+): DuplicateDependency[] {
+  return issues.map((issue) => {
+    const name = String(issue.meta?.name ?? issue.package ?? "unknown");
+    const owners = attributeOwners(name, workspacePath, config.ownership);
+    return {
+      name,
+      versions: Array.isArray(issue.meta?.versions) ? (issue.meta?.versions as string[]) : [],
+      instances: Array.isArray(issue.meta?.instances)
+        ? (issue.meta?.instances as { path: string; version: string }[])
+        : [],
+      workspaceUsage: normalizeWorkspaceUsage(issue.meta?.workspaceUsage),
+      rootCause: normalizeStringArray(issue.meta?.rootCause),
+      confidence: normalizeConfidence(issue.confidence),
+      reasonCodes: normalizeStringArray(issue.reasonCodes),
+      explanation: normalizeStringArray(issue.explanation),
+      recommendation: buildDuplicateRecommendation(issue),
+      owners
+    };
+  });
 }
 
-function mapUnusedIssues(issues: Issue[]): UnusedDependency[] {
-  return issues.map((issue) => ({
-    name: String(issue.meta?.name ?? issue.package ?? "unknown"),
-    section:
-      issue.meta?.section === "devDependencies" ? "devDependencies" : "dependencies",
-    confidence: normalizeConfidence(issue.confidence),
-    reasonCodes: normalizeStringArray(issue.reasonCodes),
-    explanation: normalizeStringArray(issue.explanation),
-    recommendation: buildUnusedRecommendation(issue)
-  }));
+function mapUnusedIssues(
+  issues: Issue[],
+  config: DepBrainConfig,
+  workspacePath?: string
+): UnusedDependency[] {
+  return issues.map((issue) => {
+    const name = String(issue.meta?.name ?? issue.package ?? "unknown");
+    const owners = attributeOwners(name, workspacePath, config.ownership);
+    return {
+      name,
+      section:
+        issue.meta?.section === "devDependencies" ? "devDependencies" : "dependencies",
+      confidence: normalizeConfidence(issue.confidence),
+      reasonCodes: normalizeStringArray(issue.reasonCodes),
+      explanation: normalizeStringArray(issue.explanation),
+      recommendation: buildUnusedRecommendation(issue),
+      owners
+    };
+  });
 }
 
-function mapOutdatedIssues(issues: Issue[]): OutdatedDependency[] {
-  return issues.map((issue) => ({
-    name: String(issue.meta?.name ?? issue.package ?? "unknown"),
-    current: String(issue.meta?.current ?? ""),
-    latest: String(issue.meta?.latest ?? ""),
-    updateType:
-      issue.meta?.updateType === "major" || issue.meta?.updateType === "minor" || issue.meta?.updateType === "patch"
-        ? issue.meta.updateType
-        : "unknown",
-    confidence: normalizeConfidence(issue.confidence),
-    reasonCodes: normalizeStringArray(issue.reasonCodes),
-    explanation: normalizeStringArray(issue.explanation),
-    advice: normalizeOutdatedAdvice(issue.meta?.advice, issue.meta?.current, issue.meta?.latest),
-    recommendation: buildOutdatedRecommendation(issue)
-  }));
+function mapOutdatedIssues(
+  issues: Issue[],
+  config: DepBrainConfig,
+  workspacePath?: string
+): OutdatedDependency[] {
+  return issues.map((issue) => {
+    const name = String(issue.meta?.name ?? issue.package ?? "unknown");
+    const owners = attributeOwners(name, workspacePath, config.ownership);
+    return {
+      name,
+      current: String(issue.meta?.current ?? ""),
+      latest: String(issue.meta?.latest ?? ""),
+      updateType:
+        issue.meta?.updateType === "major" || issue.meta?.updateType === "minor" || issue.meta?.updateType === "patch"
+          ? issue.meta.updateType
+          : "unknown",
+      confidence: normalizeConfidence(issue.confidence),
+      reasonCodes: normalizeStringArray(issue.reasonCodes),
+      explanation: normalizeStringArray(issue.explanation),
+      advice: normalizeOutdatedAdvice(issue.meta?.advice, issue.meta?.current, issue.meta?.latest),
+      recommendation: buildOutdatedRecommendation(issue),
+      owners
+    };
+  });
 }
 
-function mapRiskIssues(issues: Issue[]): RiskDependency[] {
-  return issues.map((issue) => ({
-    name: String(issue.meta?.name ?? issue.package ?? "unknown"),
-    reasons: Array.isArray(issue.meta?.reasons) ? (issue.meta?.reasons as string[]) : [],
-    confidence: normalizeConfidence(issue.confidence),
-    reasonCodes: normalizeStringArray(issue.reasonCodes),
-    explanation: normalizeStringArray(issue.explanation),
-    trustScore: normalizeTrustScore(issue.meta?.trustScore),
-    riskFactors: normalizeRiskFactors(issue.meta?.riskFactors),
-    transitiveRiskScore:
-      typeof issue.meta?.transitiveRiskScore === "number"
-        ? issue.meta.transitiveRiskScore
-        : 0,
-    riskyTransitiveDeps: normalizeRiskTransitiveDependencies(issue.meta?.riskyTransitiveDeps),
-    recommendation: buildRiskRecommendation(issue)
-  }));
+function mapRiskIssues(
+  issues: Issue[],
+  config: DepBrainConfig,
+  workspacePath?: string
+): RiskDependency[] {
+  return issues.map((issue) => {
+    const name = String(issue.meta?.name ?? issue.package ?? "unknown");
+    const owners = attributeOwners(name, workspacePath, config.ownership);
+    return {
+      name,
+      reasons: Array.isArray(issue.meta?.reasons) ? (issue.meta?.reasons as string[]) : [],
+      confidence: normalizeConfidence(issue.confidence),
+      reasonCodes: normalizeStringArray(issue.reasonCodes),
+      explanation: normalizeStringArray(issue.explanation),
+      trustScore: normalizeTrustScore(issue.meta?.trustScore),
+      riskFactors: normalizeRiskFactors(issue.meta?.riskFactors),
+      transitiveRiskScore:
+        typeof issue.meta?.transitiveRiskScore === "number"
+          ? issue.meta.transitiveRiskScore
+          : 0,
+      riskyTransitiveDeps: normalizeRiskTransitiveDependencies(issue.meta?.riskyTransitiveDeps),
+      recommendation: buildRiskRecommendation(issue),
+      owners
+    };
+  });
 }
 
 function buildUnusedRecommendation(issue: Issue): Recommendation {
@@ -931,7 +984,8 @@ function buildTopIssues(input: {
       priority: item.recommendation.priority,
       confidence: item.confidence,
       summary: item.recommendation.summary,
-      recommendation: item.recommendation
+      recommendation: item.recommendation,
+      owners: item.owners
     })),
     ...input.duplicates.map((item) => ({
       kind: "duplicate" as const,
@@ -939,7 +993,8 @@ function buildTopIssues(input: {
       priority: item.recommendation.priority,
       confidence: item.confidence,
       summary: item.recommendation.summary,
-      recommendation: item.recommendation
+      recommendation: item.recommendation,
+      owners: item.owners
     })),
     ...input.outdated.map((item) => ({
       kind: "outdated" as const,
@@ -948,7 +1003,8 @@ function buildTopIssues(input: {
       priority: item.recommendation.priority,
       confidence: item.confidence,
       summary: item.recommendation.summary,
-      recommendation: item.recommendation
+      recommendation: item.recommendation,
+      owners: item.owners
     })),
     ...input.risks.map((item) => ({
       kind: "risk" as const,
@@ -958,7 +1014,8 @@ function buildTopIssues(input: {
       confidence: item.confidence,
       summary: item.recommendation.summary,
       trustScore: item.trustScore,
-      recommendation: item.recommendation
+      recommendation: item.recommendation,
+      owners: item.owners
     }))
   ];
 
@@ -986,28 +1043,44 @@ function compareTrustScore(
 
 function addWorkspaceAttribution(
   duplicates: DuplicateDependency[],
-  workspaceGraphs: { name: string; graph: import("./graph-builder.js").DependencyGraph }[]
+  workspaceGraphs: { name: string; graph: import("./graph-builder.js").DependencyGraph }[],
+  config: DepBrainConfig,
+  projectRootDir: string,
+  workspaces: { name: string; rootDir: string }[]
 ): DuplicateDependency[] {
   return duplicates.map((item) => {
     const usage: WorkspaceDependencyUsage[] = [];
+    const ownersSet = new Set<string>(item.owners ?? []);
 
     for (const workspace of workspaceGraphs) {
       const runtimeVersion = workspace.graph.dependencies[item.name];
-      if (runtimeVersion) {
-        usage.push({
-          workspace: workspace.name,
-          section: "dependencies",
-          declaredVersion: runtimeVersion
-        });
-      }
-
       const devVersion = workspace.graph.devDependencies[item.name];
-      if (devVersion) {
-        usage.push({
-          workspace: workspace.name,
-          section: "devDependencies",
-          declaredVersion: devVersion
-        });
+      
+      if (runtimeVersion || devVersion) {
+        if (runtimeVersion) {
+          usage.push({
+            workspace: workspace.name,
+            section: "dependencies",
+            declaredVersion: runtimeVersion
+          });
+        }
+        if (devVersion) {
+          usage.push({
+            workspace: workspace.name,
+            section: "devDependencies",
+            declaredVersion: devVersion
+          });
+        }
+
+        const wsObj = workspaces.find((w) => w.name === workspace.name);
+        if (wsObj) {
+          const relativePath = path.relative(projectRootDir, wsObj.rootDir).replace(/\\/g, "/");
+          const matchPath = relativePath ? `${relativePath}/` : "";
+          const wsOwners = attributeOwners(item.name, matchPath, config.ownership);
+          for (const owner of wsOwners) {
+            ownersSet.add(owner);
+          }
+        }
       }
     }
 
@@ -1016,7 +1089,8 @@ function addWorkspaceAttribution(
       workspaceUsage: usage,
       rootCause: usage.map(
         (entry) => `${entry.workspace} -> ${item.name}@${entry.declaredVersion}`
-      )
+      ),
+      owners: Array.from(ownersSet)
     };
   });
 }

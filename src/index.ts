@@ -2,7 +2,9 @@ export { analyzeProject } from "./core/analyzer.js";
 export {
   applyFixPlan,
   isGitWorktreeDirty,
-  renderFixApplyResult
+  renderFixApplyResult,
+  rollbackLastFix,
+  createBackup
 } from "./core/fix-apply.js";
 export {
   buildUnusedFixPlan,
@@ -86,3 +88,7 @@ export type {
   PrCommentTrigger
 } from "./utils/github.js";
 export type { WorkspacePackage } from "./utils/workspaces.js";
+export { bundleArtifacts } from "./core/artifact.js";
+export type { BundleOptions, BundleResult } from "./core/artifact.js";
+export { attributeOwners } from "./core/ownership.js";
+

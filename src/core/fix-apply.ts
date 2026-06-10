@@ -1,5 +1,8 @@
 import { spawn } from "node:child_process";
-import type { FixPlan, FixPlanItem } from "./fix-plan.js";
+import { promises as fs } from "node:fs";
+import path from "node:path";
+import { findWorkspacePackages } from "../utils/workspaces.js";
+import { detectPackageManager, type FixPlan, type FixPlanItem } from "./fix-plan.js";
 
 export interface CommandResult {
   command: string;
@@ -13,6 +16,7 @@ export interface FixApplyOptions {
   allowDirty?: boolean;
   testCommand?: string;
   runner?: CommandRunner;
+  noRollback?: boolean;
 }
 
 export interface FixApplyResult {
@@ -21,6 +25,7 @@ export interface FixApplyResult {
   failed: CommandResult | null;
   test: CommandResult | null;
   dirty: boolean;
+  rolledBack?: boolean;
 }
 
 export type CommandRunner = (
@@ -28,6 +33,136 @@ export type CommandRunner = (
   args: string[],
   options: { cwd: string }
 ) => Promise<CommandResult>;
+
+interface BackupFile {
+  relativeSrc: string;
+  backupName: string;
+}
+
+interface BackupManifest {
+  timestamp: string;
+  packageManager: string;
+  files: BackupFile[];
+}
+
+export async function createBackup(rootDir: string): Promise<boolean> {
+  try {
+    const backupDir = path.join(rootDir, ".depbrain", "backup");
+    await fs.mkdir(backupDir, { recursive: true });
+
+    const packageManager = await detectPackageManager(rootDir);
+    const filesToBackup: string[] = [];
+    try {
+      await fs.access(path.join(rootDir, "package.json"));
+      filesToBackup.push("package.json");
+    } catch {}
+    
+    // Add lockfiles if they exist
+    for (const lockfile of ["package-lock.json", "pnpm-lock.yaml", "yarn.lock"]) {
+      const lockPath = path.join(rootDir, lockfile);
+      try {
+        await fs.access(lockPath);
+        filesToBackup.push(lockfile);
+      } catch {}
+    }
+
+    // Add workspace package.json files
+    try {
+      const workspaces = await findWorkspacePackages(rootDir);
+      for (const ws of workspaces) {
+        const relPath = path.relative(rootDir, ws.packageJsonPath);
+        filesToBackup.push(relPath);
+      }
+    } catch {}
+
+    const backupFiles: BackupFile[] = [];
+    for (const rel of filesToBackup) {
+      const srcPath = path.join(rootDir, rel);
+      const backupName = rel.replace(/[\/\\]/g, "___") + ".bak";
+      const destPath = path.join(backupDir, backupName);
+      
+      await fs.copyFile(srcPath, destPath);
+      backupFiles.push({
+        relativeSrc: rel.replace(/\\/g, "/"),
+        backupName
+      });
+    }
+
+    const manifest: BackupManifest = {
+      timestamp: new Date().toISOString(),
+      packageManager,
+      files: backupFiles
+    };
+
+    await fs.writeFile(
+      path.join(backupDir, "manifest.json"),
+      JSON.stringify(manifest, null, 2),
+      "utf8"
+    );
+
+    return true;
+  } catch (err) {
+    console.error("Failed to create backup:", err);
+    return false;
+  }
+}
+
+export async function rollbackLastFix(
+  rootDir: string,
+  runner: CommandRunner = runCommand
+): Promise<boolean> {
+  try {
+    const backupDir = path.join(rootDir, ".depbrain", "backup");
+    const manifestPath = path.join(backupDir, "manifest.json");
+
+    try {
+      await fs.access(manifestPath);
+    } catch {
+      console.error("No backup found to roll back.");
+      return false;
+    }
+
+    const raw = await fs.readFile(manifestPath, "utf8");
+    const manifest = JSON.parse(raw) as BackupManifest;
+
+    // Restore files
+    for (const file of manifest.files) {
+      const srcPath = path.join(backupDir, file.backupName);
+      const destPath = path.join(rootDir, file.relativeSrc);
+      
+      // Ensure target directory exists
+      await fs.mkdir(path.dirname(destPath), { recursive: true });
+      await fs.copyFile(srcPath, destPath);
+    }
+
+    // Delete backup dir
+    await fs.rm(backupDir, { recursive: true, force: true });
+
+    // Run package reinstalls
+    console.error(`Restoring packages using ${manifest.packageManager}...`);
+    const cmd = manifest.packageManager;
+    let args = [manifest.packageManager === "npm" ? "ci" : "install"];
+    
+    if (manifest.packageManager === "npm") {
+      const hasLock = manifest.files.some((f) => f.relativeSrc === "package-lock.json");
+      if (!hasLock) {
+        args = ["install"];
+      }
+    }
+
+    const result = await runner(cmd, args, { cwd: rootDir });
+    if (result.exitCode !== 0) {
+      console.error(`Package reinstall failed with code ${result.exitCode}. Output:`);
+      console.error(result.stderr);
+      return false;
+    }
+
+    return true;
+  } catch (err) {
+    console.error("Rollback failed:", err);
+    return false;
+  }
+}
 
 export async function applyFixPlan(
   plan: FixPlan,
@@ -51,17 +186,25 @@ export async function applyFixPlan(
     };
   }
 
+  // Create backup before mutations
+  const backedUp = options.noRollback ? false : await createBackup(options.rootDir);
+
   const applied: FixPlanItem[] = [];
   for (const item of plan.items) {
     const [command, ...args] = item.args;
     const result = await runner(command, args, { cwd: options.rootDir });
     if (result.exitCode !== 0) {
+      let rolledBack = false;
+      if (backedUp && !options.noRollback) {
+        rolledBack = await rollbackLastFix(options.rootDir, runner);
+      }
       return {
         applied,
         skipped: plan.skipped,
         failed: result,
         test: null,
-        dirty
+        dirty,
+        rolledBack
       };
     }
 
@@ -72,10 +215,25 @@ export async function applyFixPlan(
     ? await runShellCommand(options.testCommand, options.rootDir, runner)
     : null;
 
+  if (test && test.exitCode !== 0) {
+    let rolledBack = false;
+    if (backedUp && !options.noRollback) {
+      rolledBack = await rollbackLastFix(options.rootDir, runner);
+    }
+    return {
+      applied,
+      skipped: plan.skipped,
+      failed: test,
+      test,
+      dirty,
+      rolledBack
+    };
+  }
+
   return {
     applied,
     skipped: plan.skipped,
-    failed: test && test.exitCode !== 0 ? test : null,
+    failed: null,
     test,
     dirty
   };
@@ -103,6 +261,9 @@ export function renderFixApplyResult(result: FixApplyResult): string {
     lines.push(`Failed: ${result.failed.command}`);
     if (result.failed.stderr) {
       lines.push(result.failed.stderr);
+    }
+    if (result.rolledBack) {
+      lines.push("Changes rolled back to clean state.");
     }
   }
 

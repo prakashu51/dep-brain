@@ -85,8 +85,24 @@ async function main(): Promise<void> {
     }
 
     if (command === "fix") {
+      if (flags.has("--rollback")) {
+        try {
+          const { rollbackLastFix } = await import("./core/fix-apply.js");
+          const success = await rollbackLastFix(targetPath);
+          if (!success) {
+            process.exitCode = 1;
+          }
+          return;
+        } catch (error) {
+          console.error("Rollback failed.");
+          console.error(error);
+          process.exitCode = 1;
+          return;
+        }
+      }
+
       if (!flags.has("--unused")) {
-        console.error("Missing --unused for fix");
+        console.error("Missing --unused or --rollback for fix");
         printHelp();
         process.exitCode = 1;
         return;
@@ -120,7 +136,8 @@ async function main(): Promise<void> {
           const applyResult = await applyFixPlan(plan, {
             rootDir: result.rootDir,
             allowDirty: flags.has("--allow-dirty"),
-            testCommand: optionValues.get("--test-command")
+            testCommand: optionValues.get("--test-command"),
+            noRollback: flags.has("--no-rollback")
           });
           await writeOutput(
             flags.has("--json")
@@ -141,6 +158,49 @@ async function main(): Promise<void> {
         return;
       } catch (error) {
         console.error("Failed to build fix plan.");
+        console.error(error);
+        process.exitCode = 1;
+        return;
+      }
+    }
+
+    if (command === "artifact") {
+      if (!flags.has("--bundle")) {
+        console.error("Missing --bundle for artifact command.");
+        printHelp();
+        process.exitCode = 1;
+        return;
+      }
+
+      try {
+        const { bundleArtifacts } = await import("./core/artifact.js");
+        const cliConfig = buildCliConfig(flags, optionValues);
+        const resolvedResult = await analyzeProject({
+          rootDir: targetPath,
+          configPath: optionValues.get("--config"),
+          config: cliConfig
+        });
+        const outPath = optionValues.get("--out");
+        const bundleResult = await bundleArtifacts({
+          rootDir: targetPath,
+          config: resolvedResult.config,
+          outPath
+        });
+
+        if (bundleResult.success) {
+          console.error(
+            `Artifacts consolidated to ${bundleResult.isZip ? "ZIP archive" : "directory"}: ${bundleResult.outputPath}`
+          );
+          for (const file of bundleResult.filesBundled) {
+            console.error(`- Bundled: ${file}`);
+          }
+        } else {
+          console.error("No artifacts found to bundle.");
+          process.exitCode = 1;
+        }
+        return;
+      } catch (error) {
+        console.error("Artifact bundling failed.");
         console.error(error);
         process.exitCode = 1;
         return;
@@ -417,7 +477,9 @@ function printHelp(): void {
   );
   console.log("  dep-brain trace [--out depbrain-runtime.json] -- <command>");
   console.log("  dep-brain report --from <file> [--md] [--json] [--sarif] [--top] [--advise] [--dashboard] [--out path]");
-  console.log("  dep-brain fix [path] --unused (--dry-run | --apply) [--include-caution] [--allow-dirty] [--test-command cmd] [--json] [--out path]");
+  console.log("  dep-brain fix [path] --unused (--dry-run | --apply) [--include-caution] [--allow-dirty] [--test-command cmd] [--no-rollback] [--json] [--out path]");
+  console.log("  dep-brain fix [path] --rollback");
+  console.log("  dep-brain artifact --bundle [--out path]");
   console.log("  dep-brain config [path] [--config path]");
   console.log("  dep-brain init [--out depbrain.config.json]");
   console.log("  dep-brain help");
@@ -450,6 +512,9 @@ function printHelp(): void {
   console.log("  --allow-dirty       Apply fixes even when git worktree is dirty");
   console.log("  --test-command <cmd> Run a command after applying fixes");
   console.log("  --include-caution   Include caution-level unused dependency removals");
+  console.log("  --no-rollback       Disable auto-rollback on clean install/test command failure");
+  console.log("  --rollback          Roll back the last applied unused dependency fixes");
+  console.log("  --bundle            Bundle HTML dashboard and reports as pipeline artifacts");
   console.log("  --min-score <n>     Minimum score required to pass");
   console.log("  --fail-on-risks     Fail when risky dependencies exist");
   console.log("  --fail-on-outdated  Fail when outdated dependencies exist");
