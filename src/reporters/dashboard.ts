@@ -120,10 +120,11 @@ function renderMetric(label: string, value: number): string {
 }
 
 function renderTopIssue(item: TopIssue): string {
+  const ownersStr = item.owners && item.owners.length > 0 ? ` <span class="muted">[owners: ${escapeHtml(item.owners.join(", "))}]</span>` : "";
   return [
     '<li class="issue">',
     `<div class="kind">${escapeHtml(item.kind)} ${escapeHtml(item.priority)}</div>`,
-    `<strong>${escapeHtml(item.name)}</strong>`,
+    `<strong>${escapeHtml(item.name)}</strong>${ownersStr}`,
     `<div>${escapeHtml(item.recommendation.summary)}</div>`,
     "</li>"
   ].join("");

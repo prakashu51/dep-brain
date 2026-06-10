@@ -62,6 +62,9 @@ export interface DepBrainConfig {
   runtimeTrace: {
     outputPath: string;
   };
+  ownership?: {
+    owners: Record<string, string[]>;
+  };
 }
 
 export interface DepBrainConfigOverrides {
@@ -75,6 +78,7 @@ export interface DepBrainConfigOverrides {
   scoring?: Partial<DepBrainConfig["scoring"]>;
   scan?: Partial<DepBrainConfig["scan"]>;
   runtimeTrace?: Partial<DepBrainConfig["runtimeTrace"]>;
+  ownership?: Partial<DepBrainConfig["ownership"]>;
 }
 
 export const defaultConfig: DepBrainConfig = {
@@ -331,8 +335,26 @@ function normalizeConfig(loaded: Partial<DepBrainConfig>): DepBrainConfig {
         loaded.runtimeTrace?.outputPath,
         defaultConfig.runtimeTrace.outputPath
       )
-    }
+    },
+    ownership: loaded.ownership && typeof loaded.ownership === "object"
+      ? {
+          owners: normalizeOwners(loaded.ownership.owners)
+        }
+      : undefined
   };
+}
+
+function normalizeOwners(value: unknown): Record<string, string[]> {
+  const result: Record<string, string[]> = {};
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return result;
+  }
+  for (const [key, val] of Object.entries(value)) {
+    if (Array.isArray(val)) {
+      result[key] = val.filter((item): item is string => typeof item === "string");
+    }
+  }
+  return result;
 }
 
 function normalizeStringArray(

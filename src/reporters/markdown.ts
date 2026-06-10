@@ -8,8 +8,9 @@ export function renderMarkdownReport(result: AnalysisResult): string {
   if (result.topIssues.length > 0) {
     lines.push("## Top Issues");
     for (const item of result.topIssues) {
+      const ownersStr = item.owners && item.owners.length > 0 ? ` [owners: ${item.owners.join(", ")}]` : "";
       lines.push(
-        `- **${item.priority.toUpperCase()}** ${item.kind} \`${item.name}\`${item.package ? ` [${item.package}]` : ""}${item.trustScore ? ` | trust ${item.trustScore.toUpperCase()}` : ""} | confidence ${Math.round(item.confidence * 100)}% | ${item.summary}`
+        `- **${item.priority.toUpperCase()}** ${item.kind} \`${item.name}\`${item.package ? ` [${item.package}]` : ""}${ownersStr}${item.trustScore ? ` | trust ${item.trustScore.toUpperCase()}` : ""} | confidence ${Math.round(item.confidence * 100)}% | ${item.summary}`
       );
     }
     lines.push("");
@@ -68,59 +69,63 @@ export function renderMarkdownReport(result: AnalysisResult): string {
   appendSection(
     lines,
     "Duplicate dependencies",
-    result.duplicates.map((item) =>
-      formatEntry(
-        `${item.name}: ${item.versions.join(", ")}${item.rootCause.length > 0 ? ` | via ${item.rootCause.join("; ")}` : ""}`,
+    result.duplicates.map((item) => {
+      const ownersStr = item.owners && item.owners.length > 0 ? ` [owners: ${item.owners.join(", ")}]` : "";
+      return formatEntry(
+        `${item.name}: ${item.versions.join(", ")}${item.rootCause.length > 0 ? ` | via ${item.rootCause.join("; ")}` : ""}${ownersStr}`,
         item.confidence,
         item.explanation,
         item.recommendation
-      )
-    )
+      );
+    })
   );
 
   appendSection(
     lines,
     "Unused dependencies",
-    result.unused.map((item) =>
-      formatEntry(
+    result.unused.map((item) => {
+      const ownersStr = item.owners && item.owners.length > 0 ? ` [owners: ${item.owners.join(", ")}]` : "";
+      return formatEntry(
         item.package
-          ? `${item.name} (${item.section}) [${item.package}]`
-          : `${item.name} (${item.section})`,
+          ? `${item.name} (${item.section}) [${item.package}]${ownersStr}`
+          : `${item.name} (${item.section})${ownersStr}`,
         item.confidence,
         item.explanation,
         item.recommendation
-      )
-    )
+      );
+    })
   );
 
   appendSection(
     lines,
     "Outdated dependencies",
-    result.outdated.map((item) =>
-      formatEntry(
+    result.outdated.map((item) => {
+      const ownersStr = item.owners && item.owners.length > 0 ? ` [owners: ${item.owners.join(", ")}]` : "";
+      return formatEntry(
         item.package
-          ? `${item.name}: ${item.current} -> ${item.latest} [${item.updateType}] [${item.package}]${formatOutdatedAdviceSuffix(item)}`
-          : `${item.name}: ${item.current} -> ${item.latest} [${item.updateType}]${formatOutdatedAdviceSuffix(item)}`,
+          ? `${item.name}: ${item.current} -> ${item.latest} [${item.updateType}] [${item.package}]${ownersStr}${formatOutdatedAdviceSuffix(item)}`
+          : `${item.name}: ${item.current} -> ${item.latest} [${item.updateType}]${ownersStr}${formatOutdatedAdviceSuffix(item)}`,
         item.confidence,
         item.explanation,
         item.recommendation
-      )
-    )
+      );
+    })
   );
 
   appendSection(
     lines,
     "Risky dependencies",
-    result.risks.map((item) =>
-      formatEntry(
+    result.risks.map((item) => {
+      const ownersStr = item.owners && item.owners.length > 0 ? ` [owners: ${item.owners.join(", ")}]` : "";
+      return formatEntry(
         item.package
-          ? `${item.name}: ${item.reasons.join("; ")} [${item.package}] [trust ${item.trustScore.toUpperCase()}]${formatTransitiveRiskSuffix(item)}${formatVulnerabilitySuffix(item)}`
-          : `${item.name}: ${item.reasons.join("; ")} [trust ${item.trustScore.toUpperCase()}]${formatTransitiveRiskSuffix(item)}${formatVulnerabilitySuffix(item)}`,
+          ? `${item.name}: ${item.reasons.join("; ")} [${item.package}] [trust ${item.trustScore.toUpperCase()}]${ownersStr}${formatTransitiveRiskSuffix(item)}${formatVulnerabilitySuffix(item)}`
+          : `${item.name}: ${item.reasons.join("; ")} [trust ${item.trustScore.toUpperCase()}]${ownersStr}${formatTransitiveRiskSuffix(item)}${formatVulnerabilitySuffix(item)}`,
         item.confidence,
         item.explanation,
         item.recommendation
-      )
-    )
+      );
+    })
   );
 
   appendSection(lines, "Policy reasons", result.policy.reasons);

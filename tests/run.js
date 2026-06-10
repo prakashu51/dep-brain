@@ -1752,6 +1752,7 @@ const tests = [
       const result = await applyFixPlan(plan, {
         rootDir: "D:/fixture",
         testCommand: "npm test",
+        noRollback: true,
         runner: async (command, args) => {
           calls.push([command, ...args].join(" "));
           return {
@@ -1806,6 +1807,7 @@ const tests = [
 
       const result = await applyFixPlan(plan, {
         rootDir: "D:/fixture",
+        noRollback: true,
         runner: async (command, args) => {
           const fullCommand = [command, ...args].join(" ");
           calls.push(fullCommand);
@@ -1839,6 +1841,125 @@ const tests = [
       const normalized = files.map((file) => file.replace(/\\/g, "/"));
       assert.ok(normalized.some((file) => file.includes("/src/")));
       assert.ok(normalized.every((file) => !file.includes("/dist/")));
+    }
+  },
+  {
+    name: "ownership mapping matches package names and path patterns",
+    run: async () => {
+      const { attributeOwners } = await import("../dist/core/ownership.js");
+      const ownershipConfig = {
+        owners: {
+          "frontend-team": ["react*", "packages/frontend/**"],
+          "security-team": ["*"]
+        }
+      };
+
+      const ownersReact = attributeOwners("react-dom", "packages/backend", ownershipConfig);
+      assert.ok(ownersReact.includes("frontend-team"));
+      assert.ok(ownersReact.includes("security-team"));
+
+      const ownersPath = attributeOwners("lodash", "packages/frontend/", ownershipConfig);
+      assert.ok(ownersPath.includes("frontend-team"));
+      assert.ok(ownersPath.includes("security-team"));
+
+      const ownersOther = attributeOwners("express", "packages/backend/", ownershipConfig);
+      assert.ok(!ownersOther.includes("frontend-team"));
+      assert.ok(ownersOther.includes("security-team"));
+    }
+  },
+  {
+    name: "fix apply creates backup and rolls back on command failure",
+    run: async () => {
+      const { applyFixPlan } = await import("../dist/core/fix-apply.js");
+      const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "depbrain-apply-rb-"));
+      try {
+        const pkgJsonPath = path.join(tempRoot, "package.json");
+        await fs.writeFile(
+          pkgJsonPath,
+          JSON.stringify({ dependencies: { "unused-lib": "^1.0.0" } }),
+          "utf8"
+        );
+
+        const plan = {
+          packageManager: "npm",
+          dryRun: true,
+          commands: ["npm uninstall unused-lib"],
+          items: [
+            {
+              name: "unused-lib",
+              section: "dependencies",
+              confidence: 1,
+              safety: "safe",
+              command: "npm uninstall unused-lib",
+              args: ["npm", "uninstall", "unused-lib"]
+            }
+          ],
+          skipped: []
+        };
+
+        let uninstallCalled = false;
+        const mockRunner = async (cmd, args, opts) => {
+          if (cmd === "npm" && args[0] === "uninstall") {
+            uninstallCalled = true;
+            await fs.writeFile(pkgJsonPath, JSON.stringify({ dependencies: {} }), "utf8");
+            return { command: "npm uninstall", exitCode: 0, stdout: "", stderr: "" };
+          }
+          if (cmd === "git") {
+            return { command: "git status", exitCode: 0, stdout: "", stderr: "" };
+          }
+          if (cmd === "npm" && (args[0] === "ci" || args[0] === "install")) {
+            return { command: "npm install", exitCode: 0, stdout: "", stderr: "" };
+          }
+          return { command: cmd, exitCode: 1, stdout: "", stderr: "mocked fail" };
+        };
+
+        const result = await applyFixPlan(plan, {
+          rootDir: tempRoot,
+          allowDirty: true,
+          testCommand: "npm test",
+          runner: mockRunner
+        });
+
+        assert.ok(uninstallCalled);
+        assert.equal(result.rolledBack, true);
+
+        const pkgData = JSON.parse(await fs.readFile(pkgJsonPath, "utf8"));
+        assert.equal(pkgData.dependencies["unused-lib"], "^1.0.0");
+      } finally {
+        await fs.rm(tempRoot, { recursive: true, force: true });
+      }
+    }
+  },
+  {
+    name: "artifact bundle consolidates files to directory",
+    run: async () => {
+      const { bundleArtifacts } = await import("../dist/core/artifact.js");
+      const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "depbrain-bundle-"));
+      try {
+        await fs.writeFile(path.join(tempRoot, "depbrain-dashboard.html"), "<html></html>", "utf8");
+        await fs.writeFile(path.join(tempRoot, "depbrain-runtime.json"), "{}", "utf8");
+
+        const config = {
+          dashboard: { outputPath: "depbrain-dashboard.html" },
+          runtimeTrace: { outputPath: "depbrain-runtime.json" }
+        };
+
+        const result = await bundleArtifacts({
+          rootDir: tempRoot,
+          config,
+          outPath: "custom-artifacts"
+        });
+
+        assert.equal(result.success, true);
+        assert.equal(result.isZip, false);
+        assert.equal(result.filesBundled.length, 2);
+
+        const dirContents = await fs.readdir(path.join(tempRoot, "custom-artifacts"));
+        assert.ok(dirContents.includes("depbrain-dashboard.html"));
+        assert.ok(dirContents.includes("depbrain-runtime.json"));
+      } finally {
+        await fs.rm(tempRoot, { recursive: true, force: true });
+      }
     }
   }
 ];

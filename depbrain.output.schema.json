@@ -189,6 +189,7 @@
           "reasonCodes": { "type": "array", "items": { "type": "string" } },
           "explanation": { "type": "array", "items": { "type": "string" } },
           "recommendation": { "$ref": "#/properties/recommendation" },
+          "owners": { "type": "array", "items": { "type": "string" } },
           "instances": {
             "type": "array",
             "items": {
@@ -217,7 +218,8 @@
           "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
           "reasonCodes": { "type": "array", "items": { "type": "string" } },
           "explanation": { "type": "array", "items": { "type": "string" } },
-          "recommendation": { "$ref": "#/properties/recommendation" }
+          "recommendation": { "$ref": "#/properties/recommendation" },
+          "owners": { "type": "array", "items": { "type": "string" } }
         }
       }
     },
@@ -237,7 +239,8 @@
           "reasonCodes": { "type": "array", "items": { "type": "string" } },
           "explanation": { "type": "array", "items": { "type": "string" } },
           "advice": { "$ref": "#/properties/outdatedAdvice" },
-          "recommendation": { "$ref": "#/properties/recommendation" }
+          "recommendation": { "$ref": "#/properties/recommendation" },
+          "owners": { "type": "array", "items": { "type": "string" } }
         }
       }
     },
@@ -261,7 +264,8 @@
             "type": "array",
             "items": { "$ref": "#/properties/riskTransitiveDependency" }
           },
-          "recommendation": { "$ref": "#/properties/recommendation" }
+          "recommendation": { "$ref": "#/properties/recommendation" },
+          "owners": { "type": "array", "items": { "type": "string" } }
         }
       }
     },
@@ -284,7 +288,8 @@
           "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
           "summary": { "type": "string" },
           "trustScore": { "type": "string", "enum": ["high", "medium", "low"] },
-          "recommendation": { "$ref": "#/properties/recommendation" }
+          "recommendation": { "$ref": "#/properties/recommendation" },
+          "owners": { "type": "array", "items": { "type": "string" } }
         }
       }
     },

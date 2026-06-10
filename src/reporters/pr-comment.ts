@@ -43,8 +43,9 @@ export function renderPrCommentReport(
     lines.push("");
     lines.push("### Top Issues");
     for (const item of result.topIssues.slice(0, 5)) {
+      const ownersStr = item.owners && item.owners.length > 0 ? ` [owners: ${item.owners.join(", ")}]` : "";
       lines.push(
-        `- **${item.priority.toUpperCase()}** ${item.kind} \`${item.name}\`${item.package ? ` [${item.package}]` : ""}: ${item.summary}`
+        `- **${item.priority.toUpperCase()}** ${item.kind} \`${item.name}\`${item.package ? ` [${item.package}]` : ""}${ownersStr}: ${item.summary}`
       );
     }
   }
