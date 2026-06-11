@@ -450,7 +450,8 @@ function mergeConfig(
           overrides.risk?.osv?.severityThreshold ?? base.risk.osv.severityThreshold,
         includeDevDependencies:
           overrides.risk?.osv?.includeDevDependencies ??
-          base.risk.osv.includeDevDependencies
+          base.risk.osv.includeDevDependencies,
+        useCache: overrides.risk?.osv?.useCache ?? base.risk.osv.useCache
       }
     },
     dashboard: {
@@ -700,7 +701,12 @@ async function runChecks(
     },
     {
       name: "risk",
-      run: () => runRiskCheck(context.graph, { thresholds: config.risk })
+      run: () =>
+        runRiskCheck(context.graph, {
+          thresholds: config.risk,
+          useCache: config.risk.osv.useCache,
+          rootDir: context.rootDir
+        })
     }
   ];
 

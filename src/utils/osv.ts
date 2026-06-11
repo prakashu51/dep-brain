@@ -11,21 +11,61 @@ export interface OsvVulnerability {
 const osvCache = new Map<string, Promise<OsvVulnerability[]>>();
 
 export async function getOsvVulnerabilities(
-  name: string
+  name: string,
+  options?: { rootDir?: string; useCache?: boolean }
 ): Promise<OsvVulnerability[]> {
-  const existing = osvCache.get(name);
+  const cacheKey = `${name}:${options?.rootDir}:${options?.useCache}`;
+  const existing = osvCache.get(cacheKey);
   if (existing) {
     return existing;
   }
 
-  const request = fetchOsvVulnerabilities(name);
-  osvCache.set(name, request);
+  const request = fetchWithCache(name, options);
+  osvCache.set(cacheKey, request);
   return request;
+}
+
+async function fetchWithCache(
+  name: string,
+  options?: { rootDir?: string; useCache?: boolean }
+): Promise<OsvVulnerability[]> {
+  const rootDir = options?.rootDir;
+  const useCache = options?.useCache;
+
+  if (useCache && rootDir) {
+    try {
+      const { getCachedVulnerabilities, setCachedVulnerabilities } = await import("./osv-cache.js");
+      const cached = await getCachedVulnerabilities(rootDir, name);
+      if (cached) {
+        if (cached.isFresh) {
+          return cached.vulnerabilities;
+        }
+        const fresh = await fetchOsvVulnerabilities(name);
+        if (fresh !== null) {
+          await setCachedVulnerabilities(rootDir, name, fresh);
+          return fresh;
+        }
+        return cached.vulnerabilities;
+      }
+
+      const fresh = await fetchOsvVulnerabilities(name);
+      if (fresh !== null) {
+        await setCachedVulnerabilities(rootDir, name, fresh);
+        return fresh;
+      }
+      return [];
+    } catch (err) {
+      console.error("OSV Cache lookup/write failed, falling back to live fetch:", err);
+    }
+  }
+
+  const result = await fetchOsvVulnerabilities(name);
+  return result ?? [];
 }
 
 async function fetchOsvVulnerabilities(
   name: string
-): Promise<OsvVulnerability[]> {
+): Promise<OsvVulnerability[] | null> {
   try {
     const response = await fetch("https://api.osv.dev/v1/query", {
       method: "POST",
@@ -40,15 +80,16 @@ async function fetchOsvVulnerabilities(
     });
 
     if (!response.ok) {
-      return [];
+      return null;
     }
 
     const payload = (await response.json()) as { vulns?: unknown[] };
     return normalizeOsvVulnerabilities(payload.vulns);
   } catch {
-    return [];
+    return null;
   }
 }
+
 
 function normalizeOsvVulnerabilities(value: unknown): OsvVulnerability[] {
   if (!Array.isArray(value)) {

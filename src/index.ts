@@ -4,7 +4,9 @@ export {
   isGitWorktreeDirty,
   renderFixApplyResult,
   rollbackLastFix,
-  createBackup
+  createBackup,
+  runShellCommand,
+  runCommand
 } from "./core/fix-apply.js";
 export {
   buildUnusedFixPlan,
@@ -91,4 +93,7 @@ export type { WorkspacePackage } from "./utils/workspaces.js";
 export { bundleArtifacts } from "./core/artifact.js";
 export type { BundleOptions, BundleResult } from "./core/artifact.js";
 export { attributeOwners } from "./core/ownership.js";
-
+export { applyDeduplication } from "./core/fix-duplicates.js";
+export type { DedupeResult } from "./core/fix-duplicates.js";
+export { cleanUnusedImports } from "./core/codemod.js";
+export type { CodemodOptions, CodemodResult } from "./core/codemod.js";

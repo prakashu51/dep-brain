@@ -6,7 +6,7 @@
 
 `dep-brain` is a CLI and library for explainable dependency intelligence in JavaScript and TypeScript projects.
 
-Current release `1.12.0` adds runtime trace evidence for unused dependency analysis with output contract `1.9`.
+Current release `1.14.0` adds duplicate dependency deduplication autofix, unused import codemods, local OSV caching, and pipeline artifact bundling.
 
 ## Vision
 
@@ -104,7 +104,12 @@ npx dep-brain fix --unused --dry-run
 npx dep-brain fix --unused --dry-run --include-caution
 npx dep-brain fix --unused --dry-run --json
 npx dep-brain fix --unused --apply
+npx dep-brain fix --unused --apply --clean-imports
 npx dep-brain fix --unused --apply --test-command "npm test"
+npx dep-brain fix --duplicates --dry-run
+npx dep-brain fix --duplicates --apply
+npx dep-brain fix --duplicates --apply --test-command "npm test"
+npx dep-brain analyze --osv-cache
 npx dep-brain analyze --json --show-new-findings
 npx dep-brain analyze --json --with-fix-plan
 npx dep-brain trace -- node app.js
@@ -114,6 +119,8 @@ npx dep-brain analyze --ci
 npx dep-brain analyze --baseline depbrain-baseline.json
 npx dep-brain analyze --baseline depbrain-baseline.json --min-score 90 --fail-on-risks
 npx dep-brain report --from depbrain.json --md --out depbrain.md
+npx dep-brain artifact --bundle
+npx dep-brain artifact --bundle --out depbrain-artifacts.zip
 
 dep-brain init
 dep-brain config
@@ -249,19 +256,53 @@ dep-brain analyze --ci --baseline depbrain-baseline.json --pr-comment --comment-
 
 `--pr-comment` creates or updates one GitHub pull request comment using `GITHUB_TOKEN`, `GITHUB_REPOSITORY`, and `GITHUB_EVENT_PATH`. The comment includes policy status, health score, top issues, upgrade priorities, and baseline delta counts when `--baseline` is used.
 
+## Artifact Bundling
+
+```bash
+dep-brain artifact --bundle
+dep-brain artifact --bundle --out depbrain-artifacts.zip
+```
+
+The `artifact` command consolidates reports, baselines, runtime traces, and HTML dashboards generated during analysis into a unified destination for pipeline uploads.
+If the `--out` path ends with `.zip`, the artifacts are compressed into a ZIP archive. Otherwise, they are consolidated into a flat directory.
+
 ## Fix Plans
+
+### Unused Dependency Cleanup
 
 ```bash
 dep-brain fix --unused --dry-run
 dep-brain fix --unused --dry-run --include-caution
 dep-brain fix --unused --dry-run --json
 dep-brain fix --unused --apply
+dep-brain fix --unused --apply --clean-imports
 dep-brain fix --unused --apply --test-command "npm test"
 ```
 
-Fix plans print package-manager-specific uninstall commands without changing files. `dep-brain` detects npm, pnpm, or yarn lockfiles and skips caution-level removals unless `--include-caution` is set.
+Unused fix plans print package-manager-specific uninstall commands without changing files. `dep-brain` detects npm, pnpm, or yarn lockfiles and skips caution-level removals unless `--include-caution` is set.
 
 Apply mode runs the same plan commands, blocks on a dirty git worktree by default, and can run a verification command after successful removals. Use `--allow-dirty` only for controlled maintenance branches.
+
+If `--clean-imports` is passed, `dep-brain` runs a codemod engine to scan your project's `.js`, `.jsx`, `.ts`, and `.tsx` source files (with TSX/JSX support enabled out of the box) and automatically removes import statements referring to the uninstalled packages.
+
+### Duplicate dependency Deduplication
+
+```bash
+dep-brain fix --duplicates --dry-run
+dep-brain fix --duplicates --dry-run --json
+dep-brain fix --duplicates --apply
+dep-brain fix --duplicates --apply --test-command "npm test"
+```
+
+The duplicates fix command allows you to automatically resolve multiple versions of the same dependency in your lockfile.
+
+- **npm**: Executes `npm dedupe`
+- **pnpm**: Executes `pnpm dedupe`
+- **yarn**: Detects whether the project uses Yarn Classic or Yarn Berry. If Yarn Classic (v1), it runs `npx yarn-deduplicate yarn.lock` followed by `yarn install` to align your lockfile and node_modules. If Yarn Berry (v2+), it runs `yarn dedupe`.
+
+If duplicate versions still persist after deduplication runs, `dep-brain` suggests overrides or resolutions configuration blocks (e.g. `"overrides"` for npm/pnpm, `"resolutions"` for yarn) targeting the highest version, which you can insert directly into your `package.json`.
+
+Like the unused dependency cleanup, if a `--test-command` fails or package manager commands fail, the changes are rolled back automatically unless `--no-rollback` is supplied.
 
 ## New Findings and Fix Plans
 
@@ -288,6 +329,14 @@ dep-brain analyze --json --with-fix-plan --include-caution
 ```
 
 OSV checks add advisory ids, severity, affected ranges, and fixed versions under `riskFactors.vulnerabilities`. Failed OSV requests are treated as unknown, not risky.
+
+### OSV Local Cache
+
+You can enable local OSV advisory caching by passing the `--osv-cache` CLI flag or setting `"useCache": true` inside the config overrides under `"risk.osv"`.
+
+- **Cache location**: Queries are cached as `.json` files inside `.depbrain/osv-cache/`.
+- **TTL Expiration**: Cached responses are valid for **24 hours**. When expired, the CLI attempts to perform a fresh query.
+- **Offline Fallback**: If a registry query fails or the system is offline, `dep-brain` automatically falls back to utilizing the cached response even if it has expired.
 
 ## Runtime Traces
 
