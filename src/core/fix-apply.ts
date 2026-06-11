@@ -17,6 +17,8 @@ export interface FixApplyOptions {
   testCommand?: string;
   runner?: CommandRunner;
   noRollback?: boolean;
+  cleanImports?: boolean;
+  excludePaths?: string[];
 }
 
 export interface FixApplyResult {
@@ -26,6 +28,7 @@ export interface FixApplyResult {
   test: CommandResult | null;
   dirty: boolean;
   rolledBack?: boolean;
+  cleanedImportsCount?: number;
 }
 
 export type CommandRunner = (
@@ -104,6 +107,36 @@ export async function createBackup(rootDir: string): Promise<boolean> {
   } catch (err) {
     console.error("Failed to create backup:", err);
     return false;
+  }
+}
+
+export async function addFileToBackup(rootDir: string, filePath: string): Promise<void> {
+  try {
+    const backupDir = path.join(rootDir, ".depbrain", "backup");
+    const manifestPath = path.join(backupDir, "manifest.json");
+
+    const raw = await fs.readFile(manifestPath, "utf8");
+    const manifest = JSON.parse(raw) as BackupManifest;
+
+    const rel = path.relative(rootDir, filePath).replace(/\\/g, "/");
+
+    if (manifest.files.some((f) => f.relativeSrc === rel)) {
+      return;
+    }
+
+    const backupName = rel.replace(/[\/\\]/g, "___") + ".bak";
+    const destPath = path.join(backupDir, backupName);
+
+    await fs.mkdir(backupDir, { recursive: true });
+    await fs.copyFile(filePath, destPath);
+    manifest.files.push({
+      relativeSrc: rel,
+      backupName
+    });
+
+    await fs.writeFile(manifestPath, JSON.stringify(manifest, null, 2), "utf8");
+  } catch (err) {
+    console.error("Failed to add file to backup:", err);
   }
 }
 
@@ -211,6 +244,26 @@ export async function applyFixPlan(
     applied.push(item);
   }
 
+  let cleanedImportsCount = 0;
+  if (options.cleanImports && applied.length > 0) {
+    try {
+      const { cleanUnusedImports } = await import("./codemod.js");
+      const codemodRes = await cleanUnusedImports({
+        rootDir: options.rootDir,
+        packageNames: applied.map((item) => item.name),
+        excludePaths: options.excludePaths,
+        onBeforeModify: async (file) => {
+          if (backedUp) {
+            await addFileToBackup(options.rootDir, file);
+          }
+        }
+      });
+      cleanedImportsCount = codemodRes.filesModified.length;
+    } catch (err) {
+      console.error("Failed to run codemod cleaning:", err);
+    }
+  }
+
   const test = options.testCommand
     ? await runShellCommand(options.testCommand, options.rootDir, runner)
     : null;
@@ -226,7 +279,8 @@ export async function applyFixPlan(
       failed: test,
       test,
       dirty,
-      rolledBack
+      rolledBack,
+      cleanedImportsCount
     };
   }
 
@@ -235,7 +289,8 @@ export async function applyFixPlan(
     skipped: plan.skipped,
     failed: null,
     test,
-    dirty
+    dirty,
+    cleanedImportsCount
   };
 }
 
@@ -254,6 +309,11 @@ export function renderFixApplyResult(result: FixApplyResult): string {
     for (const item of result.applied) {
       lines.push(`- ${item.command}`);
     }
+  }
+
+  if (result.cleanedImportsCount && result.cleanedImportsCount > 0) {
+    lines.push("");
+    lines.push(`Cleaned unused imports in ${result.cleanedImportsCount} source files.`);
   }
 
   if (result.failed) {
@@ -293,7 +353,7 @@ export async function isGitWorktreeDirty(
   return result.exitCode !== 0 || result.stdout.trim().length > 0;
 }
 
-async function runShellCommand(
+export async function runShellCommand(
   commandLine: string,
   cwd: string,
   runner: CommandRunner
@@ -305,7 +365,7 @@ async function runShellCommand(
   return runner("sh", ["-c", commandLine], { cwd });
 }
 
-async function runCommand(
+export async function runCommand(
   command: string,
   args: string[],
   options: { cwd: string }

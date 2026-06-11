@@ -4,6 +4,7 @@ import { analyzeProject } from "./core/analyzer.js";
 import type { AnalysisFocus, AnalysisResult, DepBrainBaseline, NewFindingsSummary } from "./core/analyzer.js";
 import { applyFixPlan, renderFixApplyResult } from "./core/fix-apply.js";
 import { buildUnusedFixPlan, renderFixPlan } from "./core/fix-plan.js";
+import type { DedupeResult } from "./core/fix-duplicates.js";
 import { renderConsoleReport } from "./reporters/console.js";
 import { renderJsonReport } from "./reporters/json.js";
 import { renderMarkdownReport } from "./reporters/markdown.js";
@@ -101,8 +102,8 @@ async function main(): Promise<void> {
         }
       }
 
-      if (!flags.has("--unused")) {
-        console.error("Missing --unused or --rollback for fix");
+      if (!flags.has("--unused") && !flags.has("--duplicates")) {
+        console.error("Missing --unused, --duplicates or --rollback for fix");
         printHelp();
         process.exitCode = 1;
         return;
@@ -118,6 +119,74 @@ async function main(): Promise<void> {
         console.error(`No package.json found at ${sanitizeForLog(targetPath)}`);
         process.exitCode = 1;
         return;
+      }
+
+      if (flags.has("--duplicates")) {
+        try {
+          const { applyDeduplication } = await import("./core/fix-duplicates.js");
+          const { createBackup, rollbackLastFix } = await import("./core/fix-apply.js");
+          const noRollback = flags.has("--no-rollback");
+
+          if (flags.has("--dry-run")) {
+            const dedupeResult = await applyDeduplication(targetPath, {
+              dryRun: true
+            });
+            await writeOutput(
+              flags.has("--json")
+                ? JSON.stringify(dedupeResult, null, 2)
+                : renderDedupeDryRunResult(dedupeResult),
+              optionValues.get("--out")
+            );
+            return;
+          }
+
+          // Apply mode
+          const backedUp = noRollback ? false : await createBackup(targetPath);
+          const dedupeResult = await applyDeduplication(targetPath, {
+            dryRun: false
+          });
+
+          if (!dedupeResult.success) {
+            console.error(`Deduplication failed: ${dedupeResult.error || "unknown error"}`);
+            if (backedUp) {
+              console.error("Rolling back changes...");
+              await rollbackLastFix(targetPath);
+            }
+            process.exitCode = 1;
+            return;
+          }
+
+          let testResult: any = null;
+          const testCommand = optionValues.get("--test-command");
+          if (testCommand) {
+            const { runShellCommand, runCommand } = await import("./core/fix-apply.js");
+            testResult = await runShellCommand(testCommand, targetPath, runCommand);
+            if (testResult.exitCode !== 0) {
+              console.error(`Test command failed: ${testResult.command}`);
+              if (backedUp) {
+                console.error("Rolling back changes...");
+                await rollbackLastFix(targetPath);
+              }
+            }
+          }
+
+          await writeOutput(
+            flags.has("--json")
+              ? JSON.stringify({ dedupeResult, testResult }, null, 2)
+              : renderDedupeApplyResult(dedupeResult, testResult, !noRollback && testResult?.exitCode !== 0),
+            optionValues.get("--out")
+          );
+
+          if (testResult && testResult.exitCode !== 0) {
+            process.exitCode = 1;
+          }
+          return;
+        } catch (error) {
+          console.error("Failed to run duplicates deduplication.");
+          console.error(error);
+          process.exitCode = 1;
+          return;
+        }
       }
 
       try {
@@ -137,7 +206,8 @@ async function main(): Promise<void> {
             rootDir: result.rootDir,
             allowDirty: flags.has("--allow-dirty"),
             testCommand: optionValues.get("--test-command"),
-            noRollback: flags.has("--no-rollback")
+            noRollback: flags.has("--no-rollback"),
+            cleanImports: flags.has("--clean-imports")
           });
           await writeOutput(
             flags.has("--json")
@@ -453,9 +523,20 @@ function buildCliConfig(
     notifications.on = notifyOn;
   }
 
+  const risk: Partial<DepBrainConfig["risk"]> = {};
+  if (flags.has("--osv-cache")) {
+    risk.osv = {
+      enabled: true,
+      useCache: true,
+      severityThreshold: "high",
+      includeDevDependencies: false
+    };
+  }
+
   return {
     policy,
-    notifications
+    notifications,
+    risk: Object.keys(risk).length > 0 ? risk : undefined
   };
 }
 
@@ -477,7 +558,8 @@ function printHelp(): void {
   );
   console.log("  dep-brain trace [--out depbrain-runtime.json] -- <command>");
   console.log("  dep-brain report --from <file> [--md] [--json] [--sarif] [--top] [--advise] [--dashboard] [--out path]");
-  console.log("  dep-brain fix [path] --unused (--dry-run | --apply) [--include-caution] [--allow-dirty] [--test-command cmd] [--no-rollback] [--json] [--out path]");
+  console.log("  dep-brain fix [path] --unused (--dry-run | --apply) [--include-caution] [--allow-dirty] [--test-command cmd] [--no-rollback] [--clean-imports] [--json] [--out path]");
+  console.log("  dep-brain fix [path] --duplicates (--dry-run | --apply) [--test-command cmd] [--no-rollback] [--json] [--out path]");
   console.log("  dep-brain fix [path] --rollback");
   console.log("  dep-brain artifact --bundle [--out path]");
   console.log("  dep-brain config [path] [--config path]");
@@ -507,6 +589,7 @@ function printHelp(): void {
   console.log("  --from <file>       Read analysis JSON from file");
   console.log("  --out <path>        Write output to a file");
   console.log("  --unused            Build an unused dependency fix plan");
+  console.log("  --duplicates        Deduplicate dependencies in the lockfile");
   console.log("  --dry-run           Print fix commands without changing files");
   console.log("  --apply             Run fix commands from the unused dependency plan");
   console.log("  --allow-dirty       Apply fixes even when git worktree is dirty");
@@ -514,6 +597,8 @@ function printHelp(): void {
   console.log("  --include-caution   Include caution-level unused dependency removals");
   console.log("  --no-rollback       Disable auto-rollback on clean install/test command failure");
   console.log("  --rollback          Roll back the last applied unused dependency fixes");
+  console.log("  --clean-imports     Clean unused import statements from source files");
+  console.log("  --osv-cache         Enable local OSV registry response cache");
   console.log("  --bundle            Bundle HTML dashboard and reports as pipeline artifacts");
   console.log("  --min-score <n>     Minimum score required to pass");
   console.log("  --fail-on-risks     Fail when risky dependencies exist");
@@ -712,3 +797,66 @@ function buildNewFindingsSummary(result: AnalysisResult): NewFindingsSummary {
     topIssues: result.topIssues
   };
 }
+
+function renderDedupeDryRunResult(result: DedupeResult): string {
+  const lines = ["Dependency Brain Deduplication Plan", ""];
+  lines.push(`Package manager: ${result.packageManager}`);
+  lines.push("Mode: dry-run");
+  lines.push("");
+  lines.push(`Detected ${result.beforeCount} duplicate dependencies.`);
+  lines.push(`Deduplication commands that would run:`);
+  for (const cmd of result.commandsRun) {
+    lines.push(`- ${cmd}`);
+  }
+  if (result.suggestedOverrides && Object.keys(result.suggestedOverrides).length > 0) {
+    lines.push("");
+    lines.push("Suggested Overrides (add to package.json to resolve remaining duplicates):");
+    lines.push(JSON.stringify(result.suggestedOverrides, null, 2));
+  }
+  return lines.join("\n");
+}
+
+function renderDedupeApplyResult(result: DedupeResult, testResult: any, rolledBack: boolean): string {
+  const lines = ["Dependency Brain Deduplication Apply", ""];
+  lines.push(`Package manager: ${result.packageManager}`);
+  lines.push("");
+  if (!result.success) {
+    lines.push(`Deduplication failed: ${result.error}`);
+    if (rolledBack) {
+      lines.push("Changes rolled back to clean state.");
+    }
+    return lines.join("\n");
+  }
+
+  lines.push("Applied:");
+  for (const cmd of result.commandsRun) {
+    lines.push(`- ${cmd}`);
+  }
+  lines.push("");
+  lines.push(`Consolidated duplicate packages: ${result.beforeCount} -> ${result.afterCount}`);
+  lines.push(`Reduced version instances: ${result.consolidatedCount}`);
+
+  if (testResult) {
+    lines.push("");
+    lines.push(`Test command: ${testResult.command} (${testResult.exitCode === 0 ? "passed" : "failed"})`);
+    if (testResult.exitCode !== 0) {
+      lines.push(testResult.stderr);
+      if (rolledBack) {
+        lines.push("Changes rolled back to clean state.");
+      }
+    }
+  }
+
+  if (result.suggestedOverrides && Object.keys(result.suggestedOverrides).length > 0) {
+    const overridesKey = Object.keys(result.suggestedOverrides)[0];
+    const hasOverrides = overridesKey && Object.keys((result.suggestedOverrides as any)[overridesKey]).length > 0;
+    if (hasOverrides) {
+      lines.push("");
+      lines.push("Remaining duplicate dependencies persist. Add the following suggested overrides to package.json to resolve them:");
+      lines.push(JSON.stringify(result.suggestedOverrides, null, 2));
+    }
+  }
+
+  return lines.join("\n");
+}
+

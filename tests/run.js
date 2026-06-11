@@ -25,6 +25,10 @@ import { collectProjectFiles } from "../dist/utils/file-parser.js";
 import { buildAnalysisContext } from "../dist/core/context.js";
 import { defaultConfig } from "../dist/utils/config.js";
 import { loadRuntimeTrace } from "../dist/utils/runtime-trace.js";
+import { applyDeduplication } from "../dist/index.js";
+import { cleanUnusedImports } from "../dist/index.js";
+import { getCachedVulnerabilities, setCachedVulnerabilities } from "../dist/utils/osv-cache.js";
+import { getOsvVulnerabilities } from "../dist/utils/osv.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -1957,6 +1961,199 @@ const tests = [
         const dirContents = await fs.readdir(path.join(tempRoot, "custom-artifacts"));
         assert.ok(dirContents.includes("depbrain-dashboard.html"));
         assert.ok(dirContents.includes("depbrain-runtime.json"));
+      } finally {
+        await fs.rm(tempRoot, { recursive: true, force: true });
+      }
+    }
+  },
+  {
+    name: "cleanUnusedImports removes ESM/CJS and supports TSX/JSX out-of-the-box",
+    run: async () => {
+      const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "depbrain-codemod-"));
+      try {
+        const tsxFile = path.join(tempRoot, "App.tsx");
+        const jsFile = path.join(tempRoot, "index.js");
+
+        await fs.writeFile(
+          tsxFile,
+          [
+            "import React from 'react';",
+            "import { unused1, unused2 } from 'unused-pkg';",
+            "import 'side-effect-pkg';",
+            "const App = () => <div className=\"test\">Hello</div>;"
+          ].join("\n"),
+          "utf8"
+        );
+
+        await fs.writeFile(
+          jsFile,
+          [
+            "const unused = require('unused-pkg');",
+            "console.log('hello');"
+          ].join("\n"),
+          "utf8"
+        );
+
+        const result = await cleanUnusedImports({
+          rootDir: tempRoot,
+          packageNames: ["unused-pkg", "side-effect-pkg"],
+          cleanSideEffects: false
+        });
+
+        assert.deepEqual(result.filesModified.sort(), [jsFile, tsxFile].sort());
+
+        const tsxContent = await fs.readFile(tsxFile, "utf8");
+        const jsContent = await fs.readFile(jsFile, "utf8");
+
+        assert.ok(!tsxContent.includes("unused-pkg"));
+        assert.ok(tsxContent.includes("side-effect-pkg")); // side-effects kept
+        assert.ok(!jsContent.includes("unused-pkg"));
+
+        // Clean side effects test
+        await cleanUnusedImports({
+          rootDir: tempRoot,
+          packageNames: ["side-effect-pkg"],
+          cleanSideEffects: true
+        });
+        const tsxContent2 = await fs.readFile(tsxFile, "utf8");
+        assert.ok(!tsxContent2.includes("side-effect-pkg"));
+      } finally {
+        await fs.rm(tempRoot, { recursive: true, force: true });
+      }
+    }
+  },
+  {
+    name: "applyDeduplication compares graph changes and generates overrides",
+    run: async () => {
+      const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "depbrain-dedupe-"));
+      try {
+        await fs.writeFile(
+          path.join(tempRoot, "package.json"),
+          JSON.stringify({
+            dependencies: {
+              react: "^18.2.0"
+            }
+          }),
+          "utf8"
+        );
+
+        await fs.writeFile(
+          path.join(tempRoot, "package-lock.json"),
+          JSON.stringify({
+            name: "fixture",
+            lockfileVersion: 3,
+            packages: {
+              "": {
+                dependencies: {
+                  react: "^18.2.0"
+                }
+              },
+              "node_modules/react": {
+                name: "react",
+                version: "18.2.0"
+              },
+              "node_modules/foo/node_modules/react": {
+                name: "react",
+                version: "17.0.2"
+              }
+            }
+          }, null, 2),
+          "utf8"
+        );
+
+        // 1. Dry run
+        const dryRunRes = await applyDeduplication(tempRoot, { dryRun: true });
+        assert.equal(dryRunRes.success, true);
+        assert.equal(dryRunRes.beforeCount, 1);
+        assert.equal(dryRunRes.afterCount, 1);
+        assert.deepEqual(dryRunRes.suggestedOverrides, { npm: { react: "18.2.0" } });
+
+        // 2. Apply with mock runner
+        const mockRunner = async (cmd, args, opts) => {
+          // consolidate packages in mock lockfile
+          await fs.writeFile(
+            path.join(tempRoot, "package-lock.json"),
+            JSON.stringify({
+              name: "fixture",
+              lockfileVersion: 3,
+              packages: {
+                "": {
+                  dependencies: {
+                    react: "^18.2.0"
+                  }
+                },
+                "node_modules/react": {
+                  name: "react",
+                  version: "18.2.0"
+                }
+              }
+            }, null, 2),
+            "utf8"
+          );
+          return { command: `${cmd} ${args.join(" ")}`, exitCode: 0, stdout: "", stderr: "" };
+        };
+
+        const applyRes = await applyDeduplication(tempRoot, {
+          dryRun: false,
+          runner: mockRunner
+        });
+
+        assert.equal(applyRes.success, true);
+        assert.equal(applyRes.beforeCount, 1);
+        assert.equal(applyRes.afterCount, 0);
+        assert.equal(applyRes.consolidatedCount, 1); // 2 versions reduced to 1 (2 - 1 = 1)
+        assert.deepEqual(applyRes.remainingDuplicates, []);
+      } finally {
+        await fs.rm(tempRoot, { recursive: true, force: true });
+      }
+    }
+  },
+  {
+    name: "local OSV caching saves, expires and falls back",
+    run: async () => {
+      const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "depbrain-osvcache-"));
+      try {
+        const mockVuln = {
+          id: "VULN-123",
+          severity: "high",
+          summary: "test vuln",
+          affectedRanges: [],
+          fixedVersions: []
+        };
+
+        // Write to cache
+        await setCachedVulnerabilities(tempRoot, "test-pkg", [mockVuln]);
+
+        // Read from cache
+        const cached = await getCachedVulnerabilities(tempRoot, "test-pkg");
+        assert.ok(cached);
+        assert.equal(cached.isFresh, true);
+        assert.deepEqual(cached.vulnerabilities, [mockVuln]);
+
+        // Force expiry
+        const cachePath = path.join(tempRoot, ".depbrain", "osv-cache", `${encodeURIComponent("test-pkg")}.json`);
+        const expiredTime = Date.now() - 25 * 60 * 60 * 1000;
+        await fs.utimes(cachePath, new Date(expiredTime), new Date(expiredTime));
+
+        const cachedExpired = await getCachedVulnerabilities(tempRoot, "test-pkg");
+        assert.ok(cachedExpired);
+        assert.equal(cachedExpired.isFresh, false);
+
+        // Test fallback on offline query
+        // getOsvVulnerabilities will try to fetch, fail, and return cached
+        const originalFetch = globalThis.fetch;
+        globalThis.fetch = async () => {
+          throw new Error("Simulated offline");
+        };
+        try {
+          const results = await getOsvVulnerabilities("test-pkg", {
+            rootDir: tempRoot,
+            useCache: true
+          });
+          assert.deepEqual(results, [mockVuln]);
+        } finally {
+          globalThis.fetch = originalFetch;
+        }
       } finally {
         await fs.rm(tempRoot, { recursive: true, force: true });
       }

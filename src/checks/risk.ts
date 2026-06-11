@@ -17,8 +17,13 @@ import { getOsvVulnerabilities } from "../utils/osv.js";
 
 export interface RiskCheckOptions {
   resolvePackageMetadata?: (name: string) => Promise<PackageMetadata | null>;
-  resolveVulnerabilities?: (name: string) => Promise<VulnerabilityRisk[]>;
+  resolveVulnerabilities?: (
+    name: string,
+    options?: { rootDir?: string; useCache?: boolean }
+  ) => Promise<VulnerabilityRisk[]>;
   thresholds?: DepBrainConfig["risk"];
+  rootDir?: string;
+  useCache?: boolean;
 }
 
 interface PackageAssessment {
@@ -62,7 +67,8 @@ export async function findRiskDependencies(
       name,
       dependencyType,
       thresholds,
-      resolveVulnerabilities
+      resolveVulnerabilities,
+      options
     );
 
     const assessment = assessRisk(metadata, dependencyType, thresholds, 0, vulnerabilities);
@@ -151,7 +157,11 @@ async function resolveRiskVulnerabilities(
   name: string,
   dependencyType: RiskFactors["dependencyType"],
   thresholds: DepBrainConfig["risk"] | undefined,
-  resolveVulnerabilities: (name: string) => Promise<VulnerabilityRisk[]>
+  resolveVulnerabilities: (
+    name: string,
+    options?: { rootDir?: string; useCache?: boolean }
+  ) => Promise<VulnerabilityRisk[]>,
+  options?: { rootDir?: string; useCache?: boolean }
 ): Promise<VulnerabilityRisk[]> {
   if (!thresholds?.osv.enabled) {
     return [];
@@ -161,7 +171,7 @@ async function resolveRiskVulnerabilities(
     return [];
   }
 
-  const vulnerabilities = await resolveVulnerabilities(name);
+  const vulnerabilities = await resolveVulnerabilities(name, options);
   return vulnerabilities.filter((item) =>
     severityRank(item.severity) >= severityRank(thresholds.osv.severityThreshold)
   );

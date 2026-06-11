@@ -39,6 +39,7 @@ export interface DepBrainConfig {
       enabled: boolean;
       severityThreshold: "low" | "medium" | "high" | "critical";
       includeDevDependencies: boolean;
+      useCache: boolean;
     };
   };
   dashboard: {
@@ -117,7 +118,8 @@ export const defaultConfig: DepBrainConfig = {
     osv: {
       enabled: false,
       severityThreshold: "high",
-      includeDevDependencies: false
+      includeDevDependencies: false,
+      useCache: false
     }
   },
   dashboard: {
@@ -279,6 +281,10 @@ function normalizeConfig(loaded: Partial<DepBrainConfig>): DepBrainConfig {
         includeDevDependencies: normalizeBoolean(
           loaded.risk?.osv?.includeDevDependencies,
           defaultConfig.risk.osv.includeDevDependencies
+        ),
+        useCache: normalizeBoolean(
+          loaded.risk?.osv?.useCache,
+          defaultConfig.risk.osv.useCache
         )
       }
     },
