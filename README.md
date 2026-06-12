@@ -6,7 +6,7 @@
 
 `dep-brain` is a CLI and library for explainable dependency intelligence in JavaScript and TypeScript projects.
 
-Current release `1.14.0` adds duplicate dependency deduplication autofix, unused import codemods, local OSV caching, and pipeline artifact bundling.
+Current release `1.15.0` adds license compliance auditing & policy enforcement, branch-to-branch dependency diffing, CycloneDX v1.6 & SPDX v2.3 SBOM exports, and hash-based AST/import caching for faster scans.
 
 ## Vision
 
@@ -121,6 +121,12 @@ npx dep-brain analyze --baseline depbrain-baseline.json --min-score 90 --fail-on
 npx dep-brain report --from depbrain.json --md --out depbrain.md
 npx dep-brain artifact --bundle
 npx dep-brain artifact --bundle --out depbrain-artifacts.zip
+
+npx dep-brain licenses
+npx dep-brain licenses --allow MIT,Apache-2.0 --deny GPL-3.0 --fail-on-deny
+npx dep-brain diff --base main --head feature
+npx dep-brain sbom --format cyclonedx --out bom.json
+npx dep-brain sbom --format spdx --out bom.spdx.json
 
 dep-brain init
 dep-brain config
@@ -347,6 +353,51 @@ dep-brain analyze --runtime-trace depbrain-runtime.json
 
 Runtime traces record packages and files loaded by a real command. During analysis, packages seen in the trace count as used, which reduces unused false positives for dependency injection, dynamic imports, plugin loaders, and framework bootstraps.
 
+## License Compliance & Policy Enforcement
+
+Analyze and enforce license compliance across direct and transitive dependencies:
+
+```bash
+dep-brain licenses
+dep-brain licenses --allow MIT,Apache-2.0,BSD-3-Clause
+dep-brain licenses --deny GPL-2.0,AGPL-3.0 --fail-on-deny
+```
+
+- **Registry Caching**: Resolves package licenses locally via `node_modules`. If missing or offline, it queries the npm registry and caches results locally under `.depbrain/license-cache/` for 24 hours.
+- **CI Enforcement**: Use `--fail-on-deny` to exit with a non-zero exit code if a denied (or non-allowed) license is detected.
+
+## Branch-to-Branch Dependency Diff
+
+Compare dependencies between two Git references (branches, tags, or commits) to track health score changes, additions, removals, upgrades, and risk profiles.
+
+```bash
+dep-brain diff --base main --head feature-branch
+dep-brain diff --base main --head feature-branch --json
+dep-brain diff --base main --head feature-branch --md > diff.md
+```
+
+The output highlights:
+- **Added / Removed Packages**: New packages introduced or old ones cleaned up.
+- **Upgrades / Downgrades**: Version bumps, risk score deltas, and license changes.
+- **Health Score Delta**: Difference in health score (`headScore - baseScore`).
+
+## SBOM Export
+
+Export your dependency tree as a standard Software Bill of Materials (SBOM) in JSON format.
+
+```bash
+dep-brain sbom --format cyclonedx --out bom.json
+dep-brain sbom --format spdx --out bom.spdx.json
+```
+
+Supported Formats:
+- **CycloneDX v1.6**: Generates component metadata, PURLs, dependency mapping, and license structures.
+- **SPDX v2.3**: Generates standard SPDX JSON packages and relationships.
+
+## AST/Import Caching (Performance)
+
+Scanning large codebases for unused dependencies is faster with hash-based scan caching. File imports are cached under `.depbrain/scan-cache.json` using content hashes (SHA-1). If a file's content has not changed, the parser skips regex analysis, resulting in a **40% speed boost** on subsequent runs.
+
 ## Plugins
 
 ```json
@@ -547,7 +598,7 @@ src/
 
 ## Product Direction
 
-`dep-brain` is in `v1.12.0` production CLI stage, with current focus on runtime-backed dependency evidence and guarded dependency cleanup.
+`dep-brain` is in `v1.15.0` production CLI stage, with current focus on license audits, branch diffing, SBOM exports, and performance caching.
 
 Recent releases added:
 

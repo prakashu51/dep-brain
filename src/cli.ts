@@ -72,13 +72,96 @@ async function main(): Promise<void> {
           cwd: process.cwd(),
           outputPath: traceOut
         });
-        console.log(`Runtime trace written to ${path.relative(process.cwd(), traceResult.outputPath) || traceResult.outputPath}`);
+        const useJson = traceOptions.some((o) => o === "--json");
+        if (useJson) {
+          console.log(JSON.stringify(traceResult, null, 2));
+        } else {
+          console.log(`Runtime trace written to ${path.relative(process.cwd(), traceResult.outputPath) || traceResult.outputPath}`);
+        }
         if (traceResult.exitCode !== 0) {
           process.exitCode = traceResult.exitCode;
         }
         return;
       } catch (error) {
         console.error("Runtime trace failed.");
+        console.error(error);
+        process.exitCode = 1;
+        return;
+      }
+    }
+
+    if (command === "licenses") {
+      try {
+        const { auditLicenses, renderLicensesText, renderLicensesMarkdown } = await import("./core/licenses.js");
+        const allowOpt = optionValues.get("--allow");
+        const denyOpt = optionValues.get("--deny");
+        const allow = allowOpt ? allowOpt.split(",").map((s) => s.trim()) : undefined;
+        const deny = denyOpt ? denyOpt.split(",").map((s) => s.trim()) : undefined;
+        const failOnDeny = flags.has("--fail-on-deny");
+
+        const result = await auditLicenses(targetPath, { allow, deny });
+
+        const output = flags.has("--json")
+          ? JSON.stringify(result, null, 2)
+          : flags.has("--md")
+            ? renderLicensesMarkdown(result)
+            : renderLicensesText(result);
+
+        await writeOutput(output, optionValues.get("--out"));
+
+        if (failOnDeny && !result.success) {
+          process.exitCode = 1;
+        }
+        return;
+      } catch (error) {
+        console.error("License compliance check failed.");
+        console.error(error);
+        process.exitCode = 1;
+        return;
+      }
+    }
+
+    if (command === "diff") {
+      try {
+        const { diffBranches, renderDiffText, renderDiffMarkdown } = await import("./core/diff.js");
+        const baseRef = optionValues.get("--base") ?? "main";
+        const headRef = optionValues.get("--head");
+
+        const result = await diffBranches(targetPath, baseRef, headRef);
+
+        const output = flags.has("--json")
+          ? JSON.stringify(result, null, 2)
+          : flags.has("--md")
+            ? renderDiffMarkdown(result)
+            : renderDiffText(result);
+
+        await writeOutput(output, optionValues.get("--out"));
+        return;
+      } catch (error) {
+        console.error("Branch diff execution failed.");
+        console.error(error);
+        process.exitCode = 1;
+        return;
+      }
+    }
+
+    if (command === "sbom") {
+      try {
+        const { exportSbom } = await import("./core/sbom.js");
+        const format = (optionValues.get("--format") ?? "cyclonedx") as "cyclonedx" | "spdx";
+        const out = optionValues.get("--out");
+
+        if (format !== "cyclonedx" && format !== "spdx") {
+          console.error(`Invalid SBOM format: ${format}. Supported formats are: cyclonedx, spdx.`);
+          process.exitCode = 1;
+          return;
+        }
+
+        const result = await exportSbom(targetPath, { format, outPath: out });
+        console.error(`SBOM exported to ${result.outputPath} (${result.format} format, ${result.componentCount} components).`);
+        return;
+      } catch (error) {
+        console.error("SBOM generation failed.");
         console.error(error);
         process.exitCode = 1;
         return;
@@ -442,7 +525,7 @@ async function main(): Promise<void> {
         })
       ) {
         const commentResult = await upsertGitHubPrComment({
-          body: renderPrCommentReport(result, { hasBaseline: Boolean(baseline) })
+          body: await renderPrCommentReport(result, { hasBaseline: Boolean(baseline) })
         });
         if (commentResult.status === "created" || commentResult.status === "updated") {
           console.error(`PR comment ${commentResult.status}.`);
@@ -556,8 +639,11 @@ function printHelp(): void {
   console.log(
     "  dep-brain analyze [path] [--json] [--md] [--sarif] [--top] [--dashboard] [--notify] [--pr-comment] [--show-new-findings] [--with-fix-plan] [--focus kind] [--ci] [--out path] [--config path] [--baseline path] [--min-score n] [--fail-on-risks]"
   );
-  console.log("  dep-brain trace [--out depbrain-runtime.json] -- <command>");
+  console.log("  dep-brain trace [--out depbrain-runtime.json] [--json] -- <command>");
   console.log("  dep-brain report --from <file> [--md] [--json] [--sarif] [--top] [--advise] [--dashboard] [--out path]");
+  console.log("  dep-brain licenses [path] [--allow list] [--deny list] [--fail-on-deny] [--json] [--md] [--out path]");
+  console.log("  dep-brain diff [path] [--base ref] [--head ref] [--json] [--md] [--out path]");
+  console.log("  dep-brain sbom [path] [--format cyclonedx|spdx] [--out path]");
   console.log("  dep-brain fix [path] --unused (--dry-run | --apply) [--include-caution] [--allow-dirty] [--test-command cmd] [--no-rollback] [--clean-imports] [--json] [--out path]");
   console.log("  dep-brain fix [path] --duplicates (--dry-run | --apply) [--test-command cmd] [--no-rollback] [--json] [--out path]");
   console.log("  dep-brain fix [path] --rollback");
@@ -568,8 +654,8 @@ function printHelp(): void {
   console.log("  dep-brain --version");
   console.log("");
   console.log("Options:");
-  console.log("  --json              Output JSON for analysis");
-  console.log("  --md                Output Markdown report");
+  console.log("  --json              Output JSON format");
+  console.log("  --md                Output Markdown format");
   console.log("  --sarif             Output SARIF format for Code Scanning");
   console.log("  --top               Output the ranked top issues only");
   console.log("  --advise            Output upgrade advice for outdated dependencies");
@@ -590,6 +676,12 @@ function printHelp(): void {
   console.log("  --out <path>        Write output to a file");
   console.log("  --unused            Build an unused dependency fix plan");
   console.log("  --duplicates        Deduplicate dependencies in the lockfile");
+  console.log("  --allow <list>      Comma-separated list of approved licenses");
+  console.log("  --deny <list>       Comma-separated list of prohibited licenses");
+  console.log("  --fail-on-deny      Fail when a prohibited or unapproved license is detected");
+  console.log("  --base <ref>        Git base reference for diff (default: main)");
+  console.log("  --head <ref>        Git head reference for diff");
+  console.log("  --format <format>   SBOM export format (cyclonedx or spdx)");
   console.log("  --dry-run           Print fix commands without changing files");
   console.log("  --apply             Run fix commands from the unused dependency plan");
   console.log("  --allow-dirty       Apply fixes even when git worktree is dirty");

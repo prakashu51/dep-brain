@@ -6,17 +6,27 @@ export interface PrCommentOptions {
   hasBaseline?: boolean;
 }
 
-export function renderPrCommentReport(
+export async function renderPrCommentReport(
   result: AnalysisResult,
   options: PrCommentOptions = {}
-): string {
+): Promise<string> {
+  const { auditLicenses } = await import("../core/licenses.js");
+  let licenseSummary = "";
+  try {
+    const licenseAudit = await auditLicenses(result.rootDir);
+    licenseSummary = `**License Compliance:** ${licenseAudit.packages.length} audited, ${licenseAudit.counts.allowed} approved, ${licenseAudit.counts.denied} denied, ${licenseAudit.counts.unknown} unknown.`;
+  } catch (err) {
+    licenseSummary = "**License Compliance:** Failed to run audit.";
+  }
+
   const lines: string[] = [
     PR_COMMENT_MARKER,
     "## Dependency Brain",
     "",
     `**Policy:** ${result.policy.passed ? "PASS" : "FAIL"}`,
     `**Project Health:** ${result.score}/100`,
-    `**Findings:** duplicates ${result.duplicates.length}, unused ${result.unused.length}, outdated ${result.outdated.length}, risks ${result.risks.length}`
+    `**Findings:** duplicates ${result.duplicates.length}, unused ${result.unused.length}, outdated ${result.outdated.length}, risks ${result.risks.length}`,
+    licenseSummary
   ];
 
   if (options.hasBaseline) {
@@ -29,6 +39,15 @@ export function renderPrCommentReport(
     lines.push(
       `**New since baseline:** duplicates ${counts.duplicates}, unused ${counts.unused}, outdated ${counts.outdated}, risks ${counts.risks}`
     );
+
+    const newRisks = result.newFindings?.risks ?? [];
+    if (newRisks.length > 0) {
+      lines.push("");
+      lines.push("#### ⚠️ New Risky Dependencies Since Baseline");
+      for (const item of newRisks) {
+        lines.push(`- **${item.name}** (Trust: ${item.trustScore.toUpperCase()}): ${item.reasons.join("; ")}`);
+      }
+    }
   }
 
   if (result.policy.reasons.length > 0) {
