@@ -29,6 +29,8 @@ import { applyDeduplication } from "../dist/index.js";
 import { cleanUnusedImports } from "../dist/index.js";
 import { getCachedVulnerabilities, setCachedVulnerabilities } from "../dist/utils/osv-cache.js";
 import { getOsvVulnerabilities } from "../dist/utils/osv.js";
+import { auditLicenses, diffBranches, exportSbom } from "../dist/index.js";
+import { loadScanCache } from "../dist/utils/import-cache.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -1474,7 +1476,7 @@ const tests = [
   {
     name: "pr comment report includes baseline delta summary",
     run: async () => {
-      const report = renderPrCommentReport({
+      const report = await renderPrCommentReport({
         outputVersion: "1.6",
         rootDir: "D:/fixture",
         score: 72,
@@ -2154,6 +2156,202 @@ const tests = [
         } finally {
           globalThis.fetch = originalFetch;
         }
+      } finally {
+        await fs.rm(tempRoot, { recursive: true, force: true });
+      }
+    }
+  },
+  {
+    name: "scan cache saves and uses imports to skip regex parsing",
+    run: async () => {
+      const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "depbrain-scancache-"));
+      try {
+        const file = path.join(tempRoot, "index.js");
+        await fs.writeFile(file, "import react from 'react';", "utf8");
+
+        const graph = {
+          dependencies: { react: "^18.0.0" },
+          devDependencies: {},
+          overrides: {},
+          scripts: {},
+          lockPackages: { react: [{ path: "node_modules/react", version: "18.2.0" }] }
+        };
+
+        const fileEntries = [{ path: file, content: "import react from 'react';" }];
+        
+        // 1. First scan (writes cache)
+        const unused = await findUnusedDependencies(tempRoot, graph, fileEntries, { hasTypeScriptConfig: false });
+        assert.equal(unused.length, 0); // react is used
+
+        const cache = await loadScanCache(tempRoot);
+        const rel = "index.js";
+        assert.ok(cache[rel]);
+        assert.deepEqual(cache[rel].imports, ["react"]);
+
+        // 2. Second scan (reads cache, we mock different content but same hash in cache to prove it bypassed regex)
+        // Set dummy imports in cache to prove it is read
+        cache[rel].imports = ["dummy-pkg"];
+        const { saveScanCache } = await import("../dist/utils/import-cache.js");
+        await saveScanCache(tempRoot, cache);
+
+        const unused2 = await findUnusedDependencies(tempRoot, graph, fileEntries, { hasTypeScriptConfig: false });
+        assert.equal(unused2.length, 1); // react is now unused because cache says we imported dummy-pkg!
+        assert.equal(unused2[0].name, "react");
+      } finally {
+        await fs.rm(tempRoot, { recursive: true, force: true });
+      }
+    }
+  },
+  {
+    name: "auditLicenses policy compliance and cache lookup",
+    run: async () => {
+      const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "depbrain-licenses-"));
+      try {
+        await fs.writeFile(
+          path.join(tempRoot, "package.json"),
+          JSON.stringify({ dependencies: { react: "^18.0.0" } }),
+          "utf8"
+        );
+        await fs.writeFile(
+          path.join(tempRoot, "package-lock.json"),
+          JSON.stringify({
+            name: "fixture",
+            lockfileVersion: 3,
+            packages: {
+              "": { dependencies: { react: "^18.0.0" } },
+              "node_modules/react": { version: "18.2.0" }
+            }
+          }),
+          "utf8"
+        );
+
+        // Create mock react package.json with license
+        const reactDir = path.join(tempRoot, "node_modules", "react");
+        await fs.mkdir(reactDir, { recursive: true });
+        await fs.writeFile(
+          path.join(reactDir, "package.json"),
+          JSON.stringify({ name: "react", version: "18.2.0", license: "MIT" }),
+          "utf8"
+        );
+
+        // 1. Audit check: deny GPL (should pass)
+        const res1 = await auditLicenses(tempRoot, { deny: ["GPL"] });
+        assert.equal(res1.success, true);
+        assert.equal(res1.packages[0].license, "MIT");
+
+        // 2. Audit check: allow only Apache (should fail)
+        const res2 = await auditLicenses(tempRoot, { allow: ["Apache"] });
+        assert.equal(res2.success, false);
+        assert.equal(res2.packages[0].allowed, false);
+      } finally {
+        await fs.rm(tempRoot, { recursive: true, force: true });
+      }
+    }
+  },
+  {
+    name: "diffBranches extracts git files and computes deltas",
+    run: async () => {
+      const { execSync } = await import("node:child_process");
+      const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "depbrain-gitdiff-"));
+      try {
+        // Init git repo
+        execSync("git init", { cwd: tempRoot, stdio: "ignore" });
+        execSync("git config user.email \"test@example.com\"", { cwd: tempRoot, stdio: "ignore" });
+        execSync("git config user.name \"test\"", { cwd: tempRoot, stdio: "ignore" });
+
+        const pkgJson = {
+          name: "fixture",
+          version: "1.0.0",
+          dependencies: { react: "^17.0.0" }
+        };
+
+        const lockJson = {
+          name: "fixture",
+          lockfileVersion: 3,
+          packages: {
+            "": { dependencies: { react: "^17.0.0" } },
+            "node_modules/react": { version: "17.0.2" }
+          }
+        };
+
+        // Write base files
+        await fs.writeFile(path.join(tempRoot, "package.json"), JSON.stringify(pkgJson, null, 2), "utf8");
+        await fs.writeFile(path.join(tempRoot, "package-lock.json"), JSON.stringify(lockJson, null, 2), "utf8");
+        execSync("git add package.json package-lock.json", { cwd: tempRoot, stdio: "ignore" });
+        execSync("git commit -m \"initial commit\"", { cwd: tempRoot, stdio: "ignore" });
+        try {
+          execSync("git branch -m main", { cwd: tempRoot, stdio: "ignore" });
+        } catch {}
+
+        // Checkout branch and update package.json
+        execSync("git checkout -b feature", { cwd: tempRoot, stdio: "ignore" });
+        pkgJson.dependencies.react = "^18.2.0";
+        lockJson.packages["node_modules/react"].version = "18.2.0";
+
+        await fs.writeFile(path.join(tempRoot, "package.json"), JSON.stringify(pkgJson, null, 2), "utf8");
+        await fs.writeFile(path.join(tempRoot, "package-lock.json"), JSON.stringify(lockJson, null, 2), "utf8");
+        execSync("git add package.json package-lock.json", { cwd: tempRoot, stdio: "ignore" });
+        execSync("git commit -m \"upgrade react\"", { cwd: tempRoot, stdio: "ignore" });
+
+        // Run branch diff (feature branch vs main)
+        const diffRes = await diffBranches(tempRoot, "main", "feature");
+        assert.equal(diffRes.success, true);
+        
+        const reactDiff = diffRes.diffs.find((d) => d.name === "react");
+        assert.ok(reactDiff);
+        assert.equal(reactDiff.changeType, "upgraded");
+        assert.deepEqual(reactDiff.baseVersions, ["17.0.2"]);
+        assert.deepEqual(reactDiff.headVersions, ["18.2.0"]);
+      } finally {
+        await fs.rm(tempRoot, { recursive: true, force: true });
+      }
+    }
+  },
+  {
+    name: "exportSbom outputs CycloneDX v1.6 and SPDX v2.3 compliant SBOMs",
+    run: async () => {
+      const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "depbrain-sbomexport-"));
+      try {
+        await fs.writeFile(
+          path.join(tempRoot, "package.json"),
+          JSON.stringify({ name: "my-app", version: "2.1.0", dependencies: { react: "^18.0.0" } }),
+          "utf8"
+        );
+        await fs.writeFile(
+          path.join(tempRoot, "package-lock.json"),
+          JSON.stringify({
+            name: "my-app",
+            lockfileVersion: 3,
+            packages: {
+              "": { dependencies: { react: "^18.0.0" } },
+              "node_modules/react": { version: "18.2.0" }
+            }
+          }),
+          "utf8"
+        );
+
+        // 1. CycloneDX Export
+        const res1 = await exportSbom(tempRoot, { format: "cyclonedx", outPath: "bom.json" });
+        assert.equal(res1.success, true);
+        assert.equal(res1.format, "cyclonedx");
+        
+        const bomRaw = await fs.readFile(path.join(tempRoot, "bom.json"), "utf8");
+        const bom = JSON.parse(bomRaw);
+        assert.equal(bom.bomFormat, "CycloneDX");
+        assert.equal(bom.specVersion, "1.6");
+        assert.equal(bom.metadata.component.name, "my-app");
+        assert.equal(bom.components[0].name, "react");
+
+        // 2. SPDX Export
+        const res2 = await exportSbom(tempRoot, { format: "spdx", outPath: "bom.spdx.json" });
+        assert.equal(res2.success, true);
+        assert.equal(res2.format, "spdx");
+
+        const spdxRaw = await fs.readFile(path.join(tempRoot, "bom.spdx.json"), "utf8");
+        const spdx = JSON.parse(spdxRaw);
+        assert.equal(spdx.spdxVersion, "SPDX-2.3");
+        assert.equal(spdx.packages[0].name, "my-app");
+        assert.equal(spdx.packages[1].name, "react");
       } finally {
         await fs.rm(tempRoot, { recursive: true, force: true });
       }

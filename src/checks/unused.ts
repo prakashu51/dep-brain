@@ -3,6 +3,7 @@ import type { Recommendation, UnusedDependency } from "../core/analyzer.js";
 import type { DependencyGraph } from "../core/graph-builder.js";
 import type { AnalysisContext, CheckResult } from "../core/types.js";
 import type { RuntimeEvidence } from "../utils/runtime-trace.js";
+import { loadScanCache, saveScanCache, getHash } from "../utils/import-cache.js";
 
 const SOURCE_FILE_PATTERN = /\.(c|m)?(t|j)sx?$/;
 const CONFIG_FILE_PATTERN =
@@ -40,12 +41,30 @@ export async function findUnusedDependencies(
 
   const runtimeUsed = new Set<string>();
   const devUsed = new Set<string>();
+  const cache = await loadScanCache(rootDir);
+  let cacheModified = false;
 
   for (const entry of fileEntries) {
     if (!SOURCE_FILE_PATTERN.test(entry.path)) {
       continue;
     }
-    const imports = extractImportedPackages(entry.content);
+
+    const relPath = path.relative(rootDir, entry.path).replace(/\\/g, "/");
+    const hash = getHash(entry.content);
+    const cached = cache[relPath];
+    let imports: Set<string>;
+
+    if (cached && cached.hash === hash) {
+      imports = new Set(cached.imports);
+    } else {
+      imports = extractImportedPackages(entry.content);
+      cache[relPath] = {
+        hash,
+        imports: Array.from(imports)
+      };
+      cacheModified = true;
+    }
+
     const filePath = entry.path;
     const isDevOnlyFile = isDevelopmentOnlyFile(rootDir, filePath);
     const target = isDevOnlyFile ? devUsed : runtimeUsed;
@@ -57,6 +76,10 @@ export async function findUnusedDependencies(
         devUsed.add(importedPackage);
       }
     }
+  }
+
+  if (cacheModified) {
+    await saveScanCache(rootDir, cache);
   }
 
   for (const referencedBinary of extractScriptReferences(graph.scripts)) {

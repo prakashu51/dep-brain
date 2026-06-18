@@ -1,0 +1,8 @@
+{
+  "src/index.ts": {
+    "hash": "83c9ada43f55d96c61f0814283381c3d7932bbe2",
+    "imports": [
+      "chalk"
+    ]
+  }
+}
