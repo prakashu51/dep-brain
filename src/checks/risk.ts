@@ -14,6 +14,7 @@ import {
 } from "../utils/npm-api.js";
 import type { DepBrainConfig } from "../utils/config.js";
 import { getOsvVulnerabilities } from "../utils/osv.js";
+import { getScorecardInfo } from "../utils/scorecard.js";
 
 export interface RiskCheckOptions {
   resolvePackageMetadata?: (name: string) => Promise<PackageMetadata | null>;
@@ -71,7 +72,11 @@ export async function findRiskDependencies(
       options
     );
 
-    const assessment = assessRisk(metadata, dependencyType, thresholds, 0, vulnerabilities);
+    const scorecardInfo = options.rootDir
+      ? await getScorecardInfo(options.rootDir, metadata.repository)
+      : null;
+
+    const assessment = assessRisk(metadata, dependencyType, thresholds, 0, vulnerabilities, scorecardInfo);
     return {
       name,
       assessment
@@ -342,11 +347,35 @@ function assessRisk(
   dependencyType: RiskFactors["dependencyType"],
   thresholds: DepBrainConfig["risk"] | undefined,
   transitiveDependencyCount: number,
-  vulnerabilities: VulnerabilityRisk[] = []
+  vulnerabilities: VulnerabilityRisk[] = [],
+  scorecardInfo: { score: number; maintainedScore: number | null } | null = null
 ): PackageAssessment {
   const reasons: string[] = [];
   const reasonCodes: string[] = [];
   let weight = 0;
+
+  let repoActivityScore: number | null = null;
+  let issueResponseScore: number | null = null;
+
+  if (scorecardInfo) {
+    repoActivityScore = scorecardInfo.maintainedScore;
+    issueResponseScore = scorecardInfo.maintainedScore;
+
+    if (scorecardInfo.maintainedScore !== null) {
+      if (scorecardInfo.maintainedScore < 3) {
+        reasons.push(`Low repository activity (Scorecard Maintained: ${scorecardInfo.maintainedScore}/10)`);
+        reasonCodes.push("low_repo_activity");
+        weight += 3;
+        reasons.push("Slow issue response/collaboration activity");
+        reasonCodes.push("slow_issue_response");
+        weight += 2;
+      } else if (scorecardInfo.maintainedScore < 6) {
+        reasons.push(`Moderate repository activity (Scorecard Maintained: ${scorecardInfo.maintainedScore}/10)`);
+        reasonCodes.push("low_repo_activity");
+        weight += 1;
+      }
+    }
+  }
   const staleReleaseDays = thresholds?.staleReleaseDays ?? 730;
   const agingReleaseDays = thresholds?.agingReleaseDays ?? 365;
   const lowDownloadThreshold = thresholds?.lowDownloadThreshold ?? 1000;
@@ -436,7 +465,9 @@ function assessRisk(
       dependencyType,
       transitiveDependencyCount,
       riskyTransitiveCount: 0,
-      vulnerabilities
+      vulnerabilities,
+      repoActivityScore,
+      issueResponseScore
     }
   };
 }

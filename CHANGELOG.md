@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## 1.16.0
+
+- Added Policy as Code support (`dep-brain.policy.yml`) to define declarative rules for risk thresholds, license allow/deny, and outdated limits.
+- Added new CLI command `dep-brain check --policy` that evaluates declarative rules and exits with a non-zero status code on violation.
+- Upgraded Risk Scoring to v2 by integrating OpenSSF Scorecard metrics, detecting low repository activity and slow issue response times.
+- Implemented Scorecard cache mechanism (24h TTL) and offline fallback.
+
+## 1.15.0
+
+- Added `dep-brain licenses` command to show licenses of direct and transitive dependencies.
+- Added license policies with `--allow`, `--deny`, and `--fail-on-deny` options.
+- Added `dep-brain diff` to compare branches for dependency, risk, and license changes.
+- Added `dep-brain sbom` command to export CycloneDX v1.6 and SPDX v2.3 SBOM formats.
+
 ## 1.12.0
 
 - Added `dep-brain trace -- <command>` to capture runtime package and file evidence.

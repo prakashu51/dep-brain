@@ -31,6 +31,9 @@ import { getCachedVulnerabilities, setCachedVulnerabilities } from "../dist/util
 import { getOsvVulnerabilities } from "../dist/utils/osv.js";
 import { auditLicenses, diffBranches, exportSbom } from "../dist/index.js";
 import { loadScanCache } from "../dist/utils/import-cache.js";
+import { parseYaml } from "../dist/utils/yaml.js";
+import { loadPolicyFile, evaluateDeclarativePolicy } from "../dist/core/policy.js";
+import { getScorecardInfo, parseGithubUrl } from "../dist/utils/scorecard.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -2352,6 +2355,153 @@ const tests = [
         assert.equal(spdx.spdxVersion, "SPDX-2.3");
         assert.equal(spdx.packages[0].name, "my-app");
         assert.equal(spdx.packages[1].name, "react");
+      } finally {
+        await fs.rm(tempRoot, { recursive: true, force: true });
+      }
+    }
+  },
+  {
+    name: "parseYaml parses basic, nested, inline arrays and list elements",
+    run: async () => {
+      const yaml = `
+# This is a comment
+policy:
+  minScore: 85
+  failOnDuplicates: true
+licenses:
+  allow: [MIT, Apache-2.0]
+  deny:
+    - GPL-3.0
+    - AGPL-3.0
+`;
+      const parsed = parseYaml(yaml);
+      assert.deepEqual(parsed, {
+        policy: {
+          minScore: 85,
+          failOnDuplicates: true
+        },
+        licenses: {
+          allow: ["MIT", "Apache-2.0"],
+          deny: ["GPL-3.0", "AGPL-3.0"]
+        }
+      });
+    }
+  },
+  {
+    name: "evaluateDeclarativePolicy evaluates policy rules correctly",
+    run: async () => {
+      const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "depbrain-policytest-"));
+      try {
+        const policyContent = `
+policy:
+  minScore: 80
+  failOnDuplicates: true
+licenses:
+  allow: [MIT, ISC]
+  failOnDeny: true
+risks:
+  maxTrustScore: low
+  minMaintainers: 2
+  failOnOsv: true
+outdated:
+  maxMajor: 1
+`;
+        await fs.writeFile(path.join(tempRoot, "dep-brain.policy.yml"), policyContent, "utf8");
+        
+        // Write mock package.json and package-lock.json
+        await fs.writeFile(
+          path.join(tempRoot, "package.json"),
+          JSON.stringify({ name: "my-app", version: "1.0.0", dependencies: { pkgRisk1: "1.0.0" } }),
+          "utf8"
+        );
+        await fs.writeFile(
+          path.join(tempRoot, "package-lock.json"),
+          JSON.stringify({
+            name: "my-app",
+            lockfileVersion: 3,
+            packages: {
+              "": { dependencies: { pkgRisk1: "1.0.0" } },
+              "node_modules/pkgRisk1": { version: "1.0.0" }
+            }
+          }),
+          "utf8"
+        );
+        
+        // Write mock license cache file to avoid external API calls
+        const licenseCacheDir = path.join(tempRoot, ".depbrain", "license-cache");
+        await fs.mkdir(licenseCacheDir, { recursive: true });
+        await fs.writeFile(
+          path.join(licenseCacheDir, "pkgRisk1-1.0.0.json"),
+          JSON.stringify({ license: "GPL-3.0" }),
+          "utf8"
+        );
+
+        const loadedPolicy = await loadPolicyFile(tempRoot);
+        assert.ok(loadedPolicy);
+        assert.equal(loadedPolicy.policy.minScore, 80);
+        assert.equal(loadedPolicy.policy.failOnDuplicates, true);
+        assert.deepEqual(loadedPolicy.licenses.allow, ["MIT", "ISC"]);
+
+        const mockAnalysisResult = {
+          score: 75,
+          duplicates: ["pkgA", "pkgB"],
+          unused: [],
+          outdated: [
+            { name: "pkgOut1", current: "1.0.0", latest: "2.0.0", updateType: "major" },
+            { name: "pkgOut2", current: "1.0.0", latest: "2.0.0", updateType: "major" }
+          ],
+          risks: [
+            {
+              name: "pkgRisk1",
+              trustScore: "low",
+              reasonCodes: ["osv_vulnerability"],
+              riskFactors: {
+                maintainersCount: 1,
+                repoActivityScore: 2
+              }
+            }
+          ]
+        };
+
+        const result = await evaluateDeclarativePolicy(mockAnalysisResult, loadedPolicy, tempRoot);
+        assert.equal(result.passed, false);
+        assert.ok(result.reasons.some(r => r.includes("Score 75 is below minimum 80")));
+        assert.ok(result.reasons.some(r => r.includes("Found 2 duplicate dependencies")));
+        assert.ok(result.reasons.some(r => r.includes("Package pkgRisk1 has prohibited trust score low")));
+        assert.ok(result.reasons.some(r => r.includes("Package pkgRisk1 has 1 maintainers")));
+        assert.ok(result.reasons.some(r => r.includes("Package pkgRisk1 has active OSV vulnerabilities")));
+        assert.ok(result.reasons.some(r => r.includes("Found 2 major outdated dependencies")));
+      } finally {
+        await fs.rm(tempRoot, { recursive: true, force: true });
+      }
+    }
+  },
+  {
+    name: "parseGithubUrl parses owner and repository from different Git URL patterns",
+    run: async () => {
+      assert.deepEqual(parseGithubUrl("git+ssh://git@github.com/owner/repo.git"), { owner: "owner", repo: "repo" });
+      assert.deepEqual(parseGithubUrl("https://github.com/owner/repo"), { owner: "owner", repo: "repo" });
+      assert.deepEqual(parseGithubUrl("github:owner/repo"), { owner: "owner", repo: "repo" });
+      assert.deepEqual(parseGithubUrl("owner/repo"), { owner: "owner", repo: "repo" });
+      assert.equal(parseGithubUrl("invalid-url"), null);
+    }
+  },
+  {
+    name: "getScorecardInfo cache and fallback behavior works offline",
+    run: async () => {
+      const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "depbrain-scorecardtest-"));
+      try {
+        const cacheDir = path.join(tempRoot, ".depbrain", "scorecard-cache");
+        await fs.mkdir(cacheDir, { recursive: true });
+        
+        const mockInfo = { score: 7.5, maintainedScore: 8 };
+        const cacheFile = path.join(cacheDir, "testowner-testrepo.json");
+        await fs.writeFile(cacheFile, JSON.stringify(mockInfo), "utf8");
+
+        const info = await getScorecardInfo(tempRoot, "github.com/testowner/testrepo");
+        assert.ok(info);
+        assert.equal(info.score, 7.5);
+        assert.equal(info.maintainedScore, 8);
       } finally {
         await fs.rm(tempRoot, { recursive: true, force: true });
       }
