@@ -27,6 +27,7 @@ export interface AnalysisOptions {
   baseline?: DepBrainBaseline;
   focus?: AnalysisFocus;
   runtimeTracePath?: string;
+  policyPath?: string;
 }
 
 export type AnalysisFocus = "all" | "duplicates" | "unused" | "outdated" | "risks" | "health";
@@ -75,6 +76,8 @@ export interface RiskFactors {
   transitiveDependencyCount: number;
   riskyTransitiveCount: number;
   vulnerabilities: VulnerabilityRisk[];
+  repoActivityScore?: number | null;
+  issueResponseScore?: number | null;
 }
 
 export interface VulnerabilityRisk {
@@ -253,7 +256,8 @@ export async function analyzeProject(
     const result = await analyzeSingleProject(rootDir, config, {
       baseline: options.baseline,
       focus,
-      runtimeEvidence
+      runtimeEvidence,
+      policyPath: options.policyPath
     });
     return plugins.runPostScan(result);
   }
@@ -349,7 +353,7 @@ export async function analyzeProject(
     )
   ].slice(0, config.report.maxSuggestions);
 
-  const policy = evaluatePolicy(
+  let policy = evaluatePolicy(
     {
       score,
       duplicates: activeDuplicates.length,
@@ -359,6 +363,45 @@ export async function analyzeProject(
     },
     config
   );
+
+  const { loadPolicyFile, evaluateDeclarativePolicy } = await import("./policy.js");
+  const declarativePolicy = await loadPolicyFile(rootDir, options.policyPath);
+  if (declarativePolicy) {
+    const declResult = await evaluateDeclarativePolicy(
+      {
+        outputVersion: OUTPUT_VERSION,
+        rootDir,
+        score,
+        scoreBreakdown: buildScoreBreakdown({
+          duplicates: activeDuplicates.length,
+          unused: unused.length,
+          outdated: outdated.length,
+          risks: risks.length
+        }, config),
+        policy,
+        ownershipSummary: buildOwnershipSummary({
+          duplicates: activeDuplicates,
+          unused,
+          outdated,
+          risks
+        }),
+        duplicates: activeDuplicates,
+        unused,
+        outdated,
+        risks,
+        suggestions: [],
+        topIssues: [],
+        extensions: {},
+        config
+      },
+      declarativePolicy,
+      rootDir
+    );
+    policy = {
+      passed: policy.passed && declResult.passed,
+      reasons: [...policy.reasons, ...declResult.reasons]
+    };
+  }
 
   const result: AnalysisResult = {
     outputVersion: OUTPUT_VERSION,
@@ -548,6 +591,7 @@ async function analyzeSingleProject(
     focus?: AnalysisFocus;
     runtimeEvidence?: RuntimeEvidence;
     projectRootDir?: string;
+    policyPath?: string;
   } = {}
 ): Promise<AnalysisResult> {
   const context = {
@@ -618,7 +662,7 @@ async function analyzeSingleProject(
     )
   ].slice(0, config.report.maxSuggestions);
 
-  const policy = evaluatePolicy(
+  let policy = evaluatePolicy(
     {
       score,
       duplicates: baselineFiltered.duplicates.length,
@@ -628,6 +672,45 @@ async function analyzeSingleProject(
     },
     config
   );
+
+  const { loadPolicyFile, evaluateDeclarativePolicy } = await import("./policy.js");
+  const declarativePolicy = await loadPolicyFile(rootDir, options.policyPath);
+  if (declarativePolicy) {
+    const declResult = await evaluateDeclarativePolicy(
+      {
+        outputVersion: OUTPUT_VERSION,
+        rootDir,
+        score,
+        scoreBreakdown,
+        policy,
+        ownershipSummary: buildOwnershipSummary({
+          duplicates: baselineFiltered.duplicates,
+          unused: baselineFiltered.unused,
+          outdated: baselineFiltered.outdated,
+          risks: baselineFiltered.risks
+        }),
+        duplicates: baselineFiltered.duplicates,
+        unused: baselineFiltered.unused,
+        outdated: baselineFiltered.outdated,
+        risks: baselineFiltered.risks,
+        suggestions,
+        topIssues: buildTopIssues({
+          duplicates: baselineFiltered.duplicates,
+          unused: baselineFiltered.unused,
+          outdated: baselineFiltered.outdated,
+          risks: baselineFiltered.risks
+        }),
+        extensions: {},
+        config
+      },
+      declarativePolicy,
+      rootDir
+    );
+    policy = {
+      passed: policy.passed && declResult.passed,
+      reasons: [...policy.reasons, ...declResult.reasons]
+    };
+  }
 
   return {
     outputVersion: OUTPUT_VERSION,
@@ -1231,7 +1314,11 @@ function normalizeRiskFactors(value: unknown): RiskFactors {
       typeof factors.transitiveDependencyCount === "number" ? factors.transitiveDependencyCount : 0,
     riskyTransitiveCount:
       typeof factors.riskyTransitiveCount === "number" ? factors.riskyTransitiveCount : 0,
-    vulnerabilities: normalizeVulnerabilityRisks(factors.vulnerabilities)
+    vulnerabilities: normalizeVulnerabilityRisks(factors.vulnerabilities),
+    repoActivityScore:
+      typeof factors.repoActivityScore === "number" ? factors.repoActivityScore : null,
+    issueResponseScore:
+      typeof factors.issueResponseScore === "number" ? factors.issueResponseScore : null
   };
 }
 

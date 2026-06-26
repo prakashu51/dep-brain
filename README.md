@@ -6,7 +6,7 @@
 
 `dep-brain` is a CLI and library for explainable dependency intelligence in JavaScript and TypeScript projects.
 
-Current release `1.15.0` adds license compliance auditing & policy enforcement, branch-to-branch dependency diffing, CycloneDX v1.6 & SPDX v2.3 SBOM exports, and hash-based AST/import caching for faster scans.
+Current release `1.16.0` adds declarative Policy as Code (`dep-brain.policy.yml`), Risk Scoring v2 (maintainers, OpenSSF scorecard activity and issue responsiveness), and the CI-friendly `dep-brain check` subcommand.
 
 ## Vision
 
@@ -127,6 +127,8 @@ npx dep-brain licenses --allow MIT,Apache-2.0 --deny GPL-3.0 --fail-on-deny
 npx dep-brain diff --base main --head feature
 npx dep-brain sbom --format cyclonedx --out bom.json
 npx dep-brain sbom --format spdx --out bom.spdx.json
+npx dep-brain check
+npx dep-brain check --policy dep-brain.policy.yml
 
 dep-brain init
 dep-brain config
@@ -366,6 +368,47 @@ dep-brain licenses --deny GPL-2.0,AGPL-3.0 --fail-on-deny
 - **Registry Caching**: Resolves package licenses locally via `node_modules`. If missing or offline, it queries the npm registry and caches results locally under `.depbrain/license-cache/` for 24 hours.
 - **CI Enforcement**: Use `--fail-on-deny` to exit with a non-zero exit code if a denied (or non-allowed) license is detected.
 
+## Declarative Policy as Code
+
+Enforce security and compliance policies declaratively using `dep-brain.policy.yml` in the root of your project:
+
+```yaml
+policy:
+  minScore: 80
+  failOnDuplicates: true
+  failOnRisks: true
+
+licenses:
+  allow: [MIT, Apache-2.0]
+  deny: [GPL-3.0]
+  failOnDeny: true
+
+risks:
+  maxTrustScore: low
+  minMaintainers: 2
+  minRepoActivity: 3
+  failOnOsv: true
+
+outdated:
+  maxMajor: 2
+  maxMinor: 5
+```
+
+Run declarative policies using:
+```bash
+dep-brain check
+dep-brain check --policy custom-policy.yml
+```
+
+If any rule or threshold is violated, `dep-brain check` prints the specific violations and exits with a non-zero exit code (`1`), making it perfect for CI gates.
+
+### Risk Scoring v2
+
+Risk scoring evaluates package trust using extended repository signals:
+- **Maintainer Count**: Checks direct dependencies for single-maintainer risks.
+- **Repository Activity**: Integrates OpenSSF Scorecard `Maintained` scores. Low activity adds `low_repo_activity` flags and increases risk weights.
+- **Issue Responsiveness**: OpenSSF Scorecard `Maintained` check details evaluate maintainer engagement on repository issues. Low engagement adds a `slow_issue_response` warning flag.
+
 ## Branch-to-Branch Dependency Diff
 
 Compare dependencies between two Git references (branches, tags, or commits) to track health score changes, additions, removals, upgrades, and risk profiles.
@@ -598,7 +641,7 @@ src/
 
 ## Product Direction
 
-`dep-brain` is in `v1.15.0` production CLI stage, with current focus on license audits, branch diffing, SBOM exports, and performance caching.
+`dep-brain` is in `v1.16.0` production CLI stage, with current focus on declarative Policy as Code, CI checks, and Risk scoring v2.
 
 Recent releases added:
 

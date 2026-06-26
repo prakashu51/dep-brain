@@ -90,6 +90,43 @@ async function main(): Promise<void> {
       }
     }
 
+    if (command === "check") {
+      try {
+        const policyFlagPath = optionValues.get("--policy");
+        const policyPath = policyFlagPath ?? (flags.has("--policy") ? undefined : "dep-brain.policy.yml");
+
+        const cliConfig = buildCliConfig(flags, optionValues);
+        const result = await analyzeProject({
+          rootDir: targetPath,
+          configPath: optionValues.get("--config"),
+          config: cliConfig,
+          policyPath
+        });
+
+        if (flags.has("--json")) {
+          console.log(JSON.stringify(result.policy, null, 2));
+        } else {
+          console.log(`Policy Check: ${result.policy.passed ? "PASSED" : "FAILED"}`);
+          if (result.policy.reasons.length > 0) {
+            console.log("\nReasons:");
+            for (const reason of result.policy.reasons) {
+              console.log(`- ${reason}`);
+            }
+          }
+        }
+
+        if (!result.policy.passed) {
+          process.exitCode = 1;
+        }
+        return;
+      } catch (error) {
+        console.error("Policy check failed.");
+        console.error(error);
+        process.exitCode = 1;
+        return;
+      }
+    }
+
     if (command === "licenses") {
       try {
         const { auditLicenses, renderLicensesText, renderLicensesMarkdown } = await import("./core/licenses.js");
@@ -641,6 +678,7 @@ function printHelp(): void {
   );
   console.log("  dep-brain trace [--out depbrain-runtime.json] [--json] -- <command>");
   console.log("  dep-brain report --from <file> [--md] [--json] [--sarif] [--top] [--advise] [--dashboard] [--out path]");
+  console.log("  dep-brain check [path] [--policy path] [--json]");
   console.log("  dep-brain licenses [path] [--allow list] [--deny list] [--fail-on-deny] [--json] [--md] [--out path]");
   console.log("  dep-brain diff [path] [--base ref] [--head ref] [--json] [--md] [--out path]");
   console.log("  dep-brain sbom [path] [--format cyclonedx|spdx] [--out path]");
@@ -670,6 +708,7 @@ function printHelp(): void {
   console.log("  --focus <kind>      Run all, health, duplicates, unused, outdated, or risks");
   console.log("  --ci                Apply low-noise CI defaults");
   console.log("  --config <path>     Path to depbrain.config.json");
+  console.log("  --policy <path>     Path to dep-brain.policy.yml");
   console.log("  --baseline <path>   Ignore findings already present in a baseline JSON report");
   console.log("  --runtime-trace <path> Use runtime evidence to reduce unused false positives");
   console.log("  --from <file>       Read analysis JSON from file");
